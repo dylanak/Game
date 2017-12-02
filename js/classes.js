@@ -1336,11 +1336,20 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function(delta
 				layer.vertexBuffer.normals.modified = true;
 			}
 			if(layer.vertexBuffer.vertices.modified)
+			{
 				this.putShaderAttribute(0, this.shaders.attributes.vertexPosition, layer.vertexBuffer.vertices, { });
+				layer.vertexBuffer.vertices.modified = false;
+			}
 			if(layer.vertexBuffer.uvs.modified)
+			{
 				this.putShaderAttribute(0, this.shaders.attributes.textureCoord, layer.vertexBuffer.uvs, { components: 2 });
+				layer.vertexBuffer.uvs.modified = false;
+			}
 			if(layer.vertexBuffer.normals.modified)
+			{
 				this.putShaderAttribute(0, this.shaders.attributes.normalDirection, layer.vertexBuffer.normals, { });
+				layer.vertexBuffer.normals.modified = false;
+			}
 			var indexBuffer = this.gl.createBuffer();
 			this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 			this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, layer.vertexBuffer.triangles, this.gl.STATIC_DRAW);
@@ -1359,9 +1368,17 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function(delta
 					this.gl.uniform3fv(this.shaders.uniforms.dlColors[index], [ (dColor.r + 1) / 256 * dIntensity, (dColor.g + 1) / 256 * dIntensity, (dColor.b + 1) / 256 * dIntensity ]);
 				}
 			});
-			this.gl.uniformMatrix4fv(this.shaders.uniforms.projectionMatrix, false, layer.projection.matrix);
-			this.gl.uniformMatrix4fv(this.shaders.uniforms.modelViewMatrix, false, layer.modelView.matrix);
-			this.gl.uniformMatrix3fv(this.shaders.uniforms.normalMatrix, false, mat3.transpose([ ], mat3.invert([ ], mat3.fromMat4([ ], layer.modelView.matrix))));
+			if(layer.projection.matrix.modified)
+			{
+				this.gl.uniformMatrix4fv(this.shaders.uniforms.projectionMatrix, false, layer.projection.matrix);
+				layer.projection.matrix.modified = false;
+			}
+			if(layer.modelView.matrix.modified)
+			{
+				this.gl.uniformMatrix4fv(this.shaders.uniforms.modelViewMatrix, false, layer.modelView.matrix);
+				this.gl.uniformMatrix3fv(this.shaders.uniforms.normalMatrix, false, mat3.transpose([ ], mat3.invert([ ], mat3.fromMat4([ ], layer.modelView.matrix))));
+				layer.modelView.matrix.modified = false;
+			}
 			this.gl.activeTexture(this.gl.TEXTURE0);
 			this.gl.uniform1i(this.shaders.uniforms.uSampler, 0);
 			this.gl.drawElements(this.gl.TRIANGLES, layer.vertexBuffer.triangles.length, this.gl.UNSIGNED_SHORT, 0);
@@ -1500,7 +1517,9 @@ function Projection(parameters)
 {
 	parameters = parameters || { };
 	Updatable.call(this, parameters);
-	this.matrix = parameters.matrix || mat4.create();
+	this.matrix = new Float32Array(mat4.create());
+	this.matrix.defaultMatrix = true;
+	this.matrix.modified = true;
 	this.aspect = window.innerWidth / window.innerHeight;
 	this.near = parameters.near || .1;
 	this.far = parameters.far || 100;
@@ -1511,7 +1530,33 @@ PerspectiveProjection.prototype.constructor = PerspectiveProjection;
 Object.defineProperty(PerspectiveProjection.prototype, "update", { value: function()
 {
 	var rotation = (this.camera || { }).rotation;
-	this.matrix = this.camera ? mat4.rotateZ([ ], mat4.rotateY([ ], mat4.rotateX([ ], mat4.perspective([ ], Math.rad(this.camera.fov), this.aspect, this.near, this.far), Math.rad(-rotation[0])), Math.rad(rotation[1])), Math.rad(rotation[2])) : mat4.create();
+	if(this.camera)
+	{
+		mat4.rotateZ(this.matrix, mat4.rotateY([ ], mat4.rotateX([ ], mat4.perspective([ ], Math.rad(this.camera.fov), this.aspect, this.near, this.far), Math.rad(-rotation[0])), Math.rad(rotation[1])), Math.rad(rotation[2]));
+		this.matrix.defaultMatrix = false;
+		this.matrix.modified = true;
+	}
+	else if(!this.matrix.defaultMatrix)
+	{
+		this.matrix[0] = 1;
+		this.matrix[1] = 0;
+		this.matrix[2] = 0;
+		this.matrix[3] = 0;
+		this.matrix[4] = 0;
+		this.matrix[5] = 1;
+		this.matrix[6] = 0;
+		this.matrix[7] = 0;
+		this.matrix[8] = 0;
+		this.matrix[9] = 0;
+		this.matrix[10] = 1;
+		this.matrix[11] = 0;
+		this.matrix[12] = 0;
+		this.matrix[13] = 0;
+		this.matrix[14] = 0;
+		this.matrix[15] = 1;
+		this.matrix.defaultMatrix = true;
+		this.matrix.modified = true;
+	}
 } });
 Object.defineProperty(PerspectiveProjection.prototype, "camera", { get: function() { return this._camera }, set: function(camera)
 {
@@ -1571,7 +1616,9 @@ function ModelView(parameters)
 {
 	parameters = parameters || { };
 	Updatable.call(this, parameters);
-	this.matrix = parameters.matrix || mat4.create();
+	this.matrix = new Float32Array(mat4.create());
+	this.matrix.defaultMatrix = true;
+	this.matrix.modified = true;
 }
 
 CameraModelView.prototype = Object.create(ModelView.prototype);
@@ -1579,7 +1626,33 @@ CameraModelView.prototype.constructor = CameraModelView;
 Object.defineProperty(CameraModelView.prototype, "update", { value: function()
 {
 	var position = (this.camera || { }).position;
-	this.matrix = this.camera ? mat4.invert([ ], mat4.translate([ ], mat4.identity([ ]), position)) : mat4.create();
+	if(this.camera)
+	{
+		mat4.invert(this.matrix, mat4.translate([ ], mat4.identity([ ]), position));
+		this.matrix.defaultMatrix = false;
+		this.matrix.modified = true;
+	}
+	else if(!this.matrix.defaultMatrix)
+	{
+		this.matrix[0] = 1;
+		this.matrix[1] = 0;
+		this.matrix[2] = 0;
+		this.matrix[3] = 0;
+		this.matrix[4] = 0;
+		this.matrix[5] = 1;
+		this.matrix[6] = 0;
+		this.matrix[7] = 0;
+		this.matrix[8] = 0;
+		this.matrix[9] = 0;
+		this.matrix[10] = 1;
+		this.matrix[11] = 0;
+		this.matrix[12] = 0;
+		this.matrix[13] = 0;
+		this.matrix[14] = 0;
+		this.matrix[15] = 1;
+		this.matrix.defaultMatrix = true;
+		this.matrix.modified = true;
+	}
 } });
 Object.defineProperty(CameraModelView.prototype, "camera", { get: function() { return this._camera }, set: function(camera)
 {
