@@ -1,0 +1,47 @@
+{
+	"textures":
+	{
+	},
+	"translations":
+	{
+	},
+	"geometries":
+	{
+		"square": "square.json",
+		"rectangular_prism": "rectangular_prism.json",
+		"sphere": "sphere.json"
+	},
+	"controls":
+	{
+		"movement.horizontal": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "gamepad": "return Gamepad.analogFilter" }, "controllers": { "gamepad": [ "analog0" ] } },
+		"movement.backwards": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "keyboard": "return Keyboard.keyFilter", "gamepad": "return Gamepad.buttonFilter" }, "controllers": { "keyboard": [ "s" ] } },
+		"movement.forwards": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "keyboard": "return Keyboard.keyFilter", "gamepad": "return Gamepad.buttonFilter" }, "controllers": { "keyboard": [ "w" ] } },
+		"movement.leftwards": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "keyboard": "return Keyboard.keyFilter", "gamepad": "return Gamepad.buttonFilter" }, "controllers": { "keyboard": [ "a" ] } },
+		"movement.rightwards": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "keyboard": "return Keyboard.keyFilter", "gamepad": "return Gamepad.buttonFilter" }, "controllers": { "keyboard": [ "d" ] } },
+		"movement.downwards": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "keyboard": "return Keyboard.keyFilter", "gamepad": "return Gamepad.buttonFilter" }, "controllers": { "keyboard": [ "shift" ], "gamepad": [ "button10" ] } },
+		"movement.upwards": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "keyboard": "return Keyboard.keyFilter", "gamepad": "return Gamepad.buttonFilter" }, "controllers": { "keyboard": [ "spacebar" ], "gamepad": [ "button0" ] } },
+		"look.horizontal": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "gamepad": "return Gamepad.analogFilter" }, "controllers": { "gamepad": [ "analog1" ] } },
+		"look.downwards": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "keyboard": "return Keyboard.keyFilter", "gamepad": "return Gamepad.buttonFilter" }, "controllers": { "keyboard": [ "down" ] } },
+		"look.upwards": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "keyboard": "return Keyboard.keyFilter", "gamepad": "return Gamepad.buttonFilter" }, "controllers": { "keyboard": [ "up" ] } },
+		"look.leftwards": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "keyboard": "return Keyboard.keyFilter", "gamepad": "return Gamepad.buttonFilter" }, "controllers": { "keyboard": [ "left" ] } },
+		"look.rightwards": { "type": 2, "function": "return this.level.player.controlsLoopWrapped", "filters": { "keyboard": "return Keyboard.keyFilter", "gamepad": "return Gamepad.buttonFilter" }, "controllers": { "keyboard": [ "right" ] } }
+	},
+	"shaders":
+	{
+		"default":
+		{
+			"vertex":
+			{
+				"source": "default/vertex.txt",
+				"canReformat":
+				"var directionalLights = 0; renderer.layers.forEach(function(layer) { directionalLights = Math.max(directionalLights, layer.lighting.directionals.length); }); return renderer.registeredLights != directionalLights;",
+				"format":
+				"var directionalLights = 0; renderer.layers.forEach(function(layer) { directionalLights = Math.max(directionalLights, layer.lighting.directionals.length); }); renderer.registeredLights = directionalLights; return raw.format(directionalLights, Math.max(directionalLights, 1));"
+			},
+			"fragment":
+			{
+				"source": "default/fragment.txt"
+			}
+		}
+	}
+}

@@ -1,0 +1,26 @@
+precision highp float;
+attribute vec4 aVertexPosition;
+attribute vec2 aTextureCoord;
+attribute vec3 aNormalDirection;
+uniform mat4 uModelViewMatrix;
+uniform mat4 uProjectionMatrix;
+uniform mat3 uNormalMatrix;
+uniform vec3 uAmbientColor;
+uniform vec3 uDlDirections[{1}];
+uniform vec3 uDlColors[{1}];
+varying highp vec2 vTextureCoord;
+varying vec3 vLightingWeighting;
+
+void main(void)
+{
+	gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+	vTextureCoord = aTextureCoord;
+	vLightingWeighting = uAmbientColor;
+	vec3 transformedNormal = (uNormalMatrix * aNormalDirection).xyz;
+	vec3 lightWeighting;
+	for(int i = 0; i < {0}; i++)
+	{
+		lightWeighting += uDlColors[i] * max(dot(transformedNormal, uDlDirections[i]), 0.0);
+	}
+	vLightingWeighting = uAmbientColor + lightWeighting;
+}

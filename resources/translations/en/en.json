@@ -1,0 +1,21 @@
+{
+	"gamepad":
+	{
+		"microsoft":
+		{
+			"xbox": "Xbox Controller"
+		},
+		"sony":
+		{
+			"playstation"
+		},
+		"nintendo":
+		{
+			"joycon":
+			{
+				"left": "Joy-Con Left Controller",
+				"right": "Joy-Con Right Controller"
+			}
+		}
+	}
+}
