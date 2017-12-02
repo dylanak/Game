@@ -74,8 +74,8 @@ function ElementEventListener(parameters)
 	this.element = parameters.element;
 }
 
-Object.defineProperty(ElementFocusEventListener, "prototype", { value: Object.create(ElementEventListener.prototype) });
-Object.defineProperty(ElementFocusEventListener.prototype, "constructor", { value: ElementFocusEventListener });
+ElementFocusEventListener.prototype = Object.create(ElementEventListener.prototype);
+ElementFocusEventListener.prototype.constructor = ElementFocusEventListener;
 Object.defineProperty(ElementFocusEventListener.prototype, "focused", { get: function() { return this.element && document.hasFocus() && document.activeElement == this.element; } });
 
 function ElementFocusEventListener(parameters)
@@ -110,8 +110,8 @@ function Watchable(parameters)
 	});
 }
 
-Object.defineProperty(WatchableValue, "prototype", { value: Object.create(Watchable.prototype) });
-Object.defineProperty(WatchableValue.prototype, "constructor", { value: WatchableValue });
+WatchableValue.prototype = Object.create(Watchable.prototype);
+WatchableValue.prototype.constructor = WatchableValue;
 Object.defineProperty(WatchableValue.prototype, "callback", { get: function() { return this._callback; }, set: function(callback) { this._callback = callback; this.value = this.value; } });
 Object.defineProperty(WatchableValue.prototype, "value", { get: function() { return this._value; }, set: function(value) { this._value = this.callback(value); this.notifyWatchers(); if(this.parent) this.parent.notifyWatchers(); } });
 
@@ -476,6 +476,7 @@ function ElipticalPrism(parameters)
 		}
 	}
 }
+
 Object.defineProperty(Texture.prototype, "getAbsoluteU", { value: function(relativeU)
 {
 	var uvs = this.textureMap[this.index];
@@ -688,101 +689,185 @@ function TextureMap(parameters)
 	}, this));
 }
 
+Object.defineProperty(VertexBufferAllocation.prototype, "disallocate", { value: function()
+{
+	this.buffer.allocations.splice(this.index, 1);
+	var disallocations = [ ];
+	var i = 0;
+	var range = null;
+	var allocation = this;
+	this.buffer.disallocations.forEach(function(disallocation)
+	{
+		if(range)
+		{
+			if(range[1] >= disallocation[0])
+			{
+				if(range[1] <= disallocation[1])
+				{
+					disallocations.push([ disallocations.pop()[0], disallocation[1] ]);
+					range = null;
+				}
+				else
+					disallocations.push([ disallocations.pop()[0], range[1] ]);
+				return;
+			}
+		}
+		for(; i < allocation.ranges.length; i++)
+		{
+			range = allocation.ranges[i];
+			if((range[0] >= disallocation[0] && range[0] <= disallocation[1]) || (range[1] >= disallocation[0] && range[1] <= disallocation[1]))
+			{
+				range = [ Math.min(range[0], disallocation[0]), Math.max(range[1], disallocation[1]) ];
+				disallocations.push(range);
+				i++;
+				return;
+			}
+			else if(range[0] > disallocation[1] && range[0] > disallocation[1])
+				break;
+			else
+				disallocations.push(range);
+		}
+		range = null;
+		disallocations.push(disallocation);
+	});
+	this.buffer.disallocations = disallocations;
+	this.buffer.triangles = new Uint16Array(Array.from(this.buffer.triangles).splice(this.triangleRange[0], this.triangleRange[1] - this.triangleRange[0]));
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexX", { value: function(vertex, x)
+{
+	var index = this.getVertexIndex(vertex);
+	if(index)
+	{
+		this.buffer.vertices[index * 3] = x;
+		this.buffer.vertices.modified = true;
+	}
+	return index;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexY", { value: function(vertex, y)
+{
+	var index = this.getVertexIndex(vertex);
+	if(index)
+	{
+		this.buffer.vertices[index * 3 + 1] = y;
+		this.buffer.vertices.modified = true;
+	}
+	return index;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexZ", { value: function(vertex, z)
+{
+	var index = this.getVertexIndex(vertex);
+	if(index)
+	{
+		this.buffer.vertices[index * 3 + 2] = z;
+		this.buffer.vertices.modified = true;
+	}
+	return index;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexXYZ", { value: function(vertex, x, y, z)
+{
+	var index = this.getVertexIndex(vertex);
+	if(index)
+	{
+		var xyzIndex = index * 3;
+		this.buffer.vertices[xyzIndex] = x;
+		this.buffer.vertices[xyzIndex + 1] = y;
+		this.buffer.vertices[xyzIndex + 2] = z;
+		this.buffer.vertices.modified = true;
+	} 
+	return index;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexU", { value: function(vertex, u)
+{
+	var index = this.getVertexIndex(vertex);
+	if(index)
+	{
+		this.buffer.uvs[index * 2] = u;
+		this.buffer.uvs.modified = true;
+	}
+	return index;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexV", { value: function(vertex, v)
+{
+	var index = this.getVertexIndex(vertex);
+	if(index)
+	{
+		this.buffer.uvs[index * 2 + 1] = v;
+		this.buffer.uvs.modified = true;
+	}
+	return index;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexUV", { value: function(vertex, u, v)
+{
+	var index = this.getVertexIndex(vertex);
+	if(index)
+	{
+		var uvIndex = index * 2;
+		this.buffer.uvs[uvIndex] = v;
+		this.buffer.uvs[uvIndex + 1] = v;
+		this.buffer.uvs.modified = true;
+	}
+	return index;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexNormal", { value: function(vertex, normalX, normalY, normalZ)
+{
+	var index = this.getVertexIndex(vertex);
+	if(index)
+	{
+		var normalIndex = index * 3;
+		this.buffer.normals[normalIndex] = normalX;
+		this.buffer.normals[normalIndex + 1] = normalY;
+		this.buffer.normals[normalIndex + 2] = normalZ;
+		this.buffer.normals.modified = true;
+	}
+	return index;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertex", { value: function(vertex, x, y, z, u, v, normalX, normalY, normalZ)
+{
+	var index = this.getVertexIndex(vertex);
+	if(index)
+	{
+		var xyzIndex = index * 3; this.buffer.vertices[xyzIndex] = x; this.buffer.vertices[xyzIndex + 1] = y; this.buffer.vertices[xyzIndex + 2] = z;
+		var uvIndex = index * 2; this.buffer.uvs[uvIndex] = u; this.buffer.uvs[uvIndex + 1] = v;
+		this.buffer.normals[xyzIndex] = normalX; this.buffer.normals[xyzIndex + 1] = normalY; this.buffer.normals[xyzIndex + 2] = normalZ;
+		this.buffer.vertices.modified = this.buffer.uvs.modified = this.buffer.normals.modified = true;
+	}
+	return index;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "getVertexIndex", { value: function(vertex)
+{
+	var vertices = 0;
+	var range = this.vertexRanges.find(function(range)
+	{
+		vertices += range[1] - range[0];
+		return vertices >= vertex;
+	}) || [ 0, vertices - vertex ];
+	return range[1] - vertices + vertex;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "setTriangleCorner", { value: function(triangle, corner, vertex)
+{
+	var index = this.getTriangleIndex(triangle);
+	if(index)
+		this.buffer.triangles[index + corner] = vertex;
+	return index;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "setTriangle", { value: function(triangle, cornerVertex0, cornerVertex1, cornerVertex2)
+{
+	var index = this.getTriangleIndex(triangle);
+	if(index)
+	{
+		this.buffer.triangles[index] = cornerVertex0;
+		this.buffer.triangles[index + 1] = cornerVertex1;
+		this.buffer.triangles[index + 2] = cornerVertex2;
+	}
+	return index;
+} });
+Object.defineProperty(VertexBufferAllocation.prototype, "getTriangleIndex", { value: function(triangle)
+{
+	return (this.triangleRange[1] - this.triangleRange[0] > triangle ? this.triangleRange[0] + triangle : 0) * 3;
+} });
+
 function VertexBufferAllocation(buffer, index, vertexRanges, triangleRange)
 {
-	this.disallocate = function()
-	{
-		this.buffer.allocations.splice(this.index, 1);
-		var disallocations = [ ];
-		var i = 0;
-		var range = null;
-		var allocation = this;
-		this.buffer.disallocations.forEach(function(disallocation)
-		{
-			if(range)
-			{
-				if(range[1] >= disallocation[0])
-				{
-					if(range[1] <= disallocation[1])
-					{
-						disallocations.push([ disallocations.pop()[0], disallocation[1] ]);
-						range = null;
-					}
-					else
-						disallocations.push([ disallocations.pop()[0], range[1] ]);
-					return;
-				}
-			}
-			for(; i < allocation.ranges.length; i++)
-			{
-				range = allocation.ranges[i];
-				if((range[0] >= disallocation[0] && range[0] <= disallocation[1]) || (range[1] >= disallocation[0] && range[1] <= disallocation[1]))
-				{
-					range = [ Math.min(range[0], disallocation[0]), Math.max(range[1], disallocation[1]) ];
-					disallocations.push(range);
-					i++;
-					return;
-				}
-				else if(range[0] > disallocation[1] && range[0] > disallocation[1])
-					break;
-				else
-					disallocations.push(range);
-			}
-			range = null;
-			disallocations.push(disallocation);
-		});
-		this.buffer.disallocations = disallocations;
-		this.buffer.triangles = new Uint16Array(Array.from(this.buffer.triangles).splice(this.triangleRange[0], this.triangleRange[1] - this.triangleRange[0]));
-	}
-
-	this.setVertexX = function(vertex, x) { var index = this.getVertexIndex(vertex); if(index) { this.buffer.vertices[index * 3] = x; this.buffer.vertices.modified = true; } return index; }
-
-	this.setVertexY = function(vertex, y) { var index = this.getVertexIndex(vertex); if(index) { this.buffer.vertices[index * 3 + 1] = y; this.buffer.vertices.modified = true; } return index; }
-
-	this.setVertexZ = function(vertex, z) { var index = this.getVertexIndex(vertex); if(index) { this.buffer.vertices[index * 3 + 2] = z; this.buffer.vertices.modified = true; } return index; }
-
-	this.setVertexU = function(vertex, u) { var index = this.getVertexIndex(vertex); if(index) { this.buffer.uvs[index * 2] = u; this.buffer.uvs.modified = true; } return index; }
-
-	this.setVertexV = function(vertex, v) { var index = this.getVertexIndex(vertex); if(index) { this.buffer.uvs[index * 2 + 1] = v; this.buffer.uvs.modified = true; } return index; }
-
-	this.setVertexXYZ = function(vertex, x, y, z) { var index = this.getVertexIndex(vertex); if(index) { var xyzIndex = index * 3; this.buffer.vertices[xyzIndex] = x; this.buffer.vertices[xyzIndex + 1] = y; this.buffer.vertices[xyzIndex + 2] = z; this.buffer.vertices.modified = true; } return index; }
-
-	this.setVertexUV = function(vertex, u, v) { var index = this.getVertexIndex(vertex); if(index) { var uvIndex = index * 2; this.buffer.uvs[uvIndex] = u; this.buffer.uvs[uvIndex + 1] = v; this.buffer.uvs.modified = true; } return index; }
-
-	this.setVertexNormal = function(vertex, normalX, normalY, normalZ) { var index = this.getVertexIndex(vertex); if(index) { var normalIndex = index * 3; this.buffer.normals[normalIndex] = normalX; this.buffer.normals[normalIndex + 1] = normalY; this.buffer.normals[normalIndex + 2] = normalZ; this.buffer.normals.modified = true; } return index; }
-
-	this.setVertex = function(vertex, x, y, z, u, v, normalX, normalY, normalZ) 
-	{
-		var index = this.getVertexIndex(vertex);
-		if(index)
-		{
-			var xyzIndex = index * 3; this.buffer.vertices[xyzIndex] = x; this.buffer.vertices[xyzIndex + 1] = y; this.buffer.vertices[xyzIndex + 2] = z;
-			var uvIndex = index * 2; this.buffer.uvs[uvIndex] = u; this.buffer.uvs[uvIndex + 1] = v;
-			this.buffer.normals[xyzIndex] = normalX; this.buffer.normals[xyzIndex + 1] = normalY; this.buffer.normals[xyzIndex + 2] = normalZ;
-			this.buffer.vertices.modified = this.buffer.uvs.modified = this.buffer.normals.modified = true;
-		}
-		return index;
-	}
-
-	this.getVertexIndex = function(vertex)
-	{
-		var vertices = 0;
-		var range = this.vertexRanges.find(function(range)
-		{
-			vertices += range[1] - range[0];
-			return vertices >= vertex;
-		}) || [ 0, vertices - vertex ];
-		return range[1] - vertices + vertex;
-	}
-
-	this.setTriangleCorner = function(triangle, corner, vertex) { var index = this.getTriangleIndex(triangle); if(index) this.buffer.triangles[index + corner] = vertex; return index; }
-
-	this.setTriangle = function(triangle, cornerVertex0, cornerVertex1, cornerVertex2) { var index = this.getTriangleIndex(triangle); if(index) { this.buffer.triangles[index] = cornerVertex0; this.buffer.triangles[index + 1] = cornerVertex1; this.buffer.triangles[index + 2] = cornerVertex2; } return index; }
-
-	this.getTriangleIndex = function(triangle)
-	{
-		return (this.triangleRange[1] - this.triangleRange[0] > triangle ? this.triangleRange[0] + triangle : 0) * 3;
-	}
 	this.buffer = buffer;
 	this.index = index;
 	this.vertexRanges = vertexRanges;
@@ -836,35 +921,7 @@ function VertexBuffer()
 	this.triangles = new Uint16Array([ 0, 0, 0 ]);
 }
 
-function Timestamp(params, fromTime, time)
-{
-	this.copy = function()
-	{
-		return new Timestamp(JSON.parse(JSON.stringify(this.params)), this.fromTime, this.time);
-	}
-
-	this.split = function()
-	{
-		var times = Array.from(arguments);
-		var timestamp = this;
-		var json = JSON.stringify(this.params);
-		times = times.filter(function(time) { return timestamp.fromTime < time && timestamp.fromTime + timestamp.time > time; });
-		times.push(this.fromTime, this.fromTime + this.time);
-		times.sort(function(a, b) { return a - b; });
-		var timestamps = [ ];
-		for(var i = 0; i < times.length - 1; i++)
-		{
-			var fromTime = times[i];
-			timestamps.push(new Timestamp(JSON.parse(json), fromTime, times[i + 1] - fromTime));
-		}
-		return timestamps;
-	}
-	this.params = params || { };
-	this.fromTime = fromTime || 0;
-	this.time = time || 0;
-}
-
-Timestamp.merge = function()
+Object.defineProperty(Timestamp, "merge", { value: function()
 {
 	var params = { };
 	var fromTime = NaN;
@@ -880,9 +937,8 @@ Timestamp.merge = function()
 		}
 	}
 	return new Timestamp(JSON.parse(JSON.stringify(params)), fromTime, toTime - fromTime);	
-};
-
-Timestamp.splitAll = function()
+} });
+Object.defineProperty(Timestamp, "splitAll", { value: function()
 {
 	var timestamps = [ ];
 	var splitPoints = [ ];
@@ -919,8 +975,34 @@ Timestamp.splitAll = function()
 	for(var i = 0; i < splitTimestamps.length; i++)
 		timestamps.push(Timestamp.merge.apply(this, splitTimestamps[i]));
 	return timestamps;
-};
+} });
+Object.defineProperty(Timestamp.prototype, "copy", { value: function()
+{
+	return new Timestamp(JSON.parse(JSON.stringify(this.params)), this.fromTime, this.time);
+} });
+Object.defineProperty(Timestamp.prototype, "split", { value: function()
+{
+	var times = Array.from(arguments);
+	var timestamp = this;
+	var json = JSON.stringify(this.params);
+	times = times.filter(function(time) { return timestamp.fromTime < time && timestamp.fromTime + timestamp.time > time; });
+	times.push(this.fromTime, this.fromTime + this.time);
+	times.sort(function(a, b) { return a - b; });
+	var timestamps = [ ];
+	for(var i = 0; i < times.length - 1; i++)
+	{
+		var fromTime = times[i];
+		timestamps.push(new Timestamp(JSON.parse(json), fromTime, times[i + 1] - fromTime));
+	}
+	return timestamps;
+} });
 
+function Timestamp(params, fromTime, time)
+{
+	this.params = params || { };
+	this.fromTime = fromTime || 0;
+	this.time = time || 0;
+}
 Object.defineProperty(Control.prototype, "addControllers", { value: function() { Array.from(parameters).forEach(function(controller) { if(this.controllers.indexOf(controller) < 0) this.controllers.push(controller); }, this ); return this; } });
 Object.defineProperty(Control.prototype, "reset", { value: function()
 {
@@ -1257,7 +1339,9 @@ Object.defineProperty(Renderer.prototype, "resize", { value: function()
 {
 	this.game.level.projection.aspect = this.game.gui.projection.aspect = window.innerWidth / window.innerHeight;
 } });
-Object.defineProperty(Renderer.prototype, "bindTextureMap", { value: function() { } });
+Object.defineProperty(Renderer.prototype, "bindTextureMap", { value: function()
+{
+} });
 Object.defineProperty(Renderer.prototype, "unload", { value: function()
 {
 	this.layers.forEach(function(layer)
@@ -1507,7 +1591,7 @@ function OpenGLShaders(renderer, parameters)
 	this.populateVariables(renderer);
 }
 
-Object.defineProperty(Projection, "prototype", { value: Object.create(Updatable.prototype) });
+Projection.prototype = Object.create(Updatable.prototype);
 Projection.prototype.constructor = Projection;
 Object.defineProperty(Projection.prototype, "aspect", { get: function() { return this._aspect; }, set: function(aspect) { this._aspect = aspect; this.requestUpdate(); } });
 Object.defineProperty(Projection.prototype, "near", { get: function() { return this._near; }, set: function(near) { this._near = near; this.requestUpdate(); } });
