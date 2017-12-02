@@ -583,7 +583,9 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 								var rightBox = [ Math.min(affectedBox[0] + affectedBox[2], remainingBox[0] + remainingBox[2]), topBox[1] + topBox[3], 0, 0 ];
 								rightBox[2] = Math.max(affectedBox[0] + affectedBox[2], remainingBox[0] + remainingBox[2]) - rightBox[0];
 								rightBox[3] = Math.max(affectedBox[1] + affectedBox[3], remainingBox[1] + remainingBox[3]) - rightBox[1];
-								if(topBox[2] * topBox[3] + bottomBox[2] * bottomBox[3] + leftBox[2] * leftBox[3] + rightBox[3]
+								if(topBox[2] * topBox[3] + bottomBox[2] * bottomBox[3] + leftBox[2] * leftBox[3] + rightBox[2] * rightBox[3] > 0)
+								{
+								}
 							});
 							boxesInArea[quadrantIndex].push(affectedBox);
 						}
