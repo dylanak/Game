@@ -564,7 +564,7 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 						if(u < quadrantBox[0])
 							continue;
 						var vArray = availableBoxesMap[u];
-						for(var l = 0; v = vArray[-1][0]; l < vArray[-1].length && v < quadrantBox[1] + quadrantBox[3]; v = vArray[-1][++l])
+						for(var l = 0, v = vArray[-1][0]; l < vArray[-1].length && v < quadrantBox[1] + quadrantBox[3]; v = vArray[-1][++l])
 						{
 							if(v < quadrantBox[1])
 								continue;
