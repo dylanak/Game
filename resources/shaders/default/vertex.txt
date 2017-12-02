@@ -17,10 +17,8 @@ void main(void)
 	vTextureCoord = aTextureCoord;
 	vLightingWeighting = uAmbientColor;
 	vec3 transformedNormal = (uNormalMatrix * aNormalDirection).xyz;
-	vec3 lightWeighting;
-	for(int i = 0; i < {0}; i++)
-	{
+	vec3 lightWeighting = uDlColors[0] * max(dot(transformedNormal, uDlDirections[0]), 0.0);
+	for(int i = 1; i < {0}; i++)
 		lightWeighting += uDlColors[i] * max(dot(transformedNormal, uDlDirections[i]), 0.0);
-	}
 	vLightingWeighting = uAmbientColor + lightWeighting;
 }
