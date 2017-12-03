@@ -2057,6 +2057,8 @@ function Level(parameters)
 	this.modelView = parameters.modelView instanceof ModelView ? parameters.modelView : new CameraModelView(Object.assign(parameters.modelView || { }, { camera: this.player.camera }));
 }
 
+Game.prototype = Object.create(ElementEventListener.prototype);
+Game.prototype.constructor = Game;
 Object.defineProperty(Game.prototype, "pushUpdateRequest", { value: function(request) { return this.renderer.updateRequests.push(request) - 1; }, writable: true });
 Object.defineProperty(Game.prototype, "replaceUpdateRequest", { value: function(request, index)
 {
@@ -2070,6 +2072,7 @@ Object.defineProperty(Game.prototype, "unload", { value: function(event)
 	this.save();
 	this.controls.unload();
 	this.renderer.unload();
+	this.removeEventListener("contextmenu");
 	window.removeEventListener("beforeunload", this.unloadWrapper);
 	return "g";
 } });
@@ -2078,6 +2081,9 @@ Object.defineProperty(Game.prototype, "save", { value: function() { } });
 function Game(parameters)
 {
 	parameters = parameters || { };
+	parameters.element = parameters.element instanceof Element ? parameters.element : document.body;
+	ElementEventListener.call(this, parameters);
+	this.addEventListener("contextmenu", function(event) { event.preventDefault(); });
 	if(!parameters.renderer)
 		parameters.renderer = { };
 	parameters.renderer.game = this;
@@ -2086,7 +2092,6 @@ function Game(parameters)
 	this.replaceUpdateRequest = function(request, index) { var oldRequest = updateRequests[index]; updateRequests[index] = request; return oldRequest; };
 	this.pullUpdateRequest = function(index) { updateRequests.splice(index, 1); };
 	this.directory = parameters.directory || { };
-	this.element = parameters.element instanceof Element ? parameters.element : document.body;
 	this.options = { controls: { gamepad: { deadZone: .3 } } };
 	if(!parameters.controls)
 		parameters.controls = { };
