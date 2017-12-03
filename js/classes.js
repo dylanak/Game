@@ -284,7 +284,7 @@ function RotationVector3(parameters)
 }
 
 Color.prototype = Object.create(Watchable);
-Color.prototype.contstructor = Color;
+Color.prototype.constructor = Color;
 Object.defineProperty(Color.prototype, "r", { get: function() { return this._r; }, set: function(r) { this._r = Math.max(0, Math.min(255, r || 0)); } });
 Object.defineProperty(Color.prototype, "g", { get: function() { return this._g; }, set: function(g) { this._g = Math.max(0, Math.min(255, g || 0)); } });
 Object.defineProperty(Color.prototype, "b", { get: function() { return this._b; }, set: function(b) { this._b = Math.max(0, Math.min(255, b || 0)); } });
@@ -337,6 +337,15 @@ function Physics(parameters)
 
 Geometry.prototype = Object.create(Updatable.prototype);
 Geometry.prototype.constructor = Geometry;
+Object.defineProperty(Geometry.prototype, "buildGeometry", { value: function(renderer)
+{
+	this.relativeVertices = [ ];
+	this.requestUpdate();
+} });
+Object.defineProperty(Geometry.prototype, "onTextureMapChange", { value: function(renderer)
+{
+	this.buildGeometry(renderer);
+} });
 Object.defineProperty(Geometry.prototype, "addRelativeVertex", { value: function(index, position, uv, normal)
 {
 	var relativeVertex = this.relativeVertices[index] = [ position, uv, normal ];
@@ -379,40 +388,42 @@ function Geometry(parameters, layer, vertices, triangles)
 	this.rotation = parameters.rotation instanceof Vector3 ? parameters.rotation : new RotationVector3(parameters.rotation);
 	this.position.watch(this.requestUpdate, this);
 	this.rotation.watch(this.requestUpdate, this);
-	this.relativeVertices = [ ];
-	this.requestUpdate();
+	this.buildGeometry(layer.game.renderer);
 }
 
 RectangleGeometry.prototype = Object.create(Geometry.prototype);
 RectangleGeometry.prototype.constructor = RectangleGeometry;
+Object.defineProperty(RectangleGeometry.prototype, "buildGeometry", { value: function(renderer)
+{
+	callSuper(this, "buildGeometry", renderer);
+	var index0 = this.allocation.getVertexIndex(0), index2 = this.allocation.getVertexIndex(2);
+	this.allocation.setTriangle(0, index0, this.allocation.getVertexIndex(1), index2);
+	this.allocation.setTriangle(1, index0, index2, this.allocation.getVertexIndex(3));
+	var aU0 = this.texture.getAbsoluteU(0);
+	var aU1 = this.texture.getAbsoluteU(1);
+	var aV0 = this.texture.getAbsoluteV(0);
+	var aV1 = this.texture.getAbsoluteV(1);
+	this.addRelativeVertex(0, new Vector3({ x: -this.width / 2, y: -this.height / 2 }), new Vector2({ x: aU0, y: aV1 }), new Vector3({ z: -1 }));
+	this.addRelativeVertex(1, new Vector3({ x: this.width / 2, y: -this.height / 2 }), new Vector2({ x: aU1, y: aV1 }), new Vector3({ z: -1 }));
+	this.addRelativeVertex(2, new Vector3({ x: this.width / 2, y: this.height / 2 }), new Vector2({ x: aU1, y: aV0 }), new Vector3({ z: -1 }));
+	this.addRelativeVertex(3, new Vector3({ x: -this.width / 2, y: this.height / 2 }), new Vector2({ x: aU0, y: aV0 }), new Vector3({ z: -1 }));
+} });
 
 function RectangleGeometry(parameters, layer)
 {
 	parameters = parameters || { };
+	this.texture = parameters.texture instanceof Texture ? parameters.texture : layer.game.renderer.textureMap.textures[0];
 	Geometry.call(parameters, layer, 4);
 	this.texture = parameters.texture;
 	this.width = parameters.width || 1;
 	this.height = parameters.height || 1;
-	var index0 = this.allocation.getVertexIndex(0), index2 = this.allocation.getVertexIndex(2);
-	this.allocation.setTriangle(0, index0, this.allocation.getVertexIndex(1), index2);
-	this.allocation.setTriangle(1, index0, index2, this.allocation.getVertexIndex(3));
-	this.addRelativeVertex(0, new Vector3({ x: -this.width / 2, y: -this.height / 2 }), new Vector2({ x: 0, y: 1 }), new Vector3({ z: -1 }));
-	this.addRelativeVertex(1, new Vector3({ x: this.width / 2, y: -this.height / 2 }), new Vector2({ x: 1, y: 1 }), new Vector3({ z: -1 }));
-	this.addRelativeVertex(2, new Vector3({ x: this.width / 2, y: this.height / 2 }), new Vector2({ x: 1, y: 0 }), new Vector3({ z: -1 }));
-	this.addRelativeVertex(3, new Vector3({ x: -this.width / 2, y: this.height / 2 }), new Vector2({ x: 0, y: 0 }), new Vector3({ z: -1 }));
 }
 
 RectangularPrismGeometry.prototype = Object.create(Geometry.prototype);
 RectangularPrismGeometry.prototype.constructor = RectangularPrismGeometry;
-
-function RectangularPrismGeometry(layer, parameters)
+Object.defineProperty(RectangularPrismGeometry.prototype, "buildGeometry", { value: function(renderer)
 {
-	parameters = parameters || { };
-	Geometry.call(this, parameters, layer, 24);
-	this.texture = parameters.texture;
-	this.width = parameters.width || 1;
-	this.height = parameters.height || 1;
-	this.depth = parameters.depth || 1;
+	callSuper(this, "buildGeometry", renderer);
 	var index0 = this.allocation.getVertexIndex(0), index2 = this.allocation.getVertexIndex(2);
 	var index4 = this.allocation.getVertexIndex(4), index6 = this.allocation.getVertexIndex(6);
 	var index8 = this.allocation.getVertexIndex(8), index10 = this.allocation.getVertexIndex(10);
@@ -425,38 +436,51 @@ function RectangularPrismGeometry(layer, parameters)
 	this.allocation.setTriangle(6, index12, this.allocation.getVertexIndex(13), index14); this.allocation.setTriangle(7, index12, index14, this.allocation.getVertexIndex(15));
 	this.allocation.setTriangle(8, index16, this.allocation.getVertexIndex(17), index18); this.allocation.setTriangle(9, index16, index18, this.allocation.getVertexIndex(19));
 	this.allocation.setTriangle(10, index20, this.allocation.getVertexIndex(21), index22); this.allocation.setTriangle(11, index20, index22, this.allocation.getVertexIndex(23));
+	var aU0 = this.texture.getAbsoluteU(0);
+	var aU1 = this.texture.getAbsoluteU(1);
+	var aV0 = this.texture.getAbsoluteV(0);
+	var aV1 = this.texture.getAbsoluteV(1);
+	this.addRelativeVertex(0, new Vector3([ this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ aU0, aV1 ]), new Vector3({ z: -1 }));
+	this.addRelativeVertex(1, new Vector3([ -this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ aU1, aV1 ]), new Vector3({ z: -1 }));
+	this.addRelativeVertex(2, new Vector3([ -this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ aU1, aV0 ]), new Vector3({ z: -1 }));
 
-	this.addRelativeVertex(0, new Vector3([ this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ 0, 1 ]), new Vector3({ z: -1 }));
-	this.addRelativeVertex(1, new Vector3([ -this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ 1, 1 ]), new Vector3({ z: -1 }));
-	this.addRelativeVertex(2, new Vector3([ -this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ 1, 0 ]), new Vector3({ z: -1 }));
+	this.addRelativeVertex(3, new Vector3([ this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ aU0, aV0 ]), new Vector3({ z: -1 }));
+	this.addRelativeVertex(4, new Vector3([ this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ aU1, aV1 ]), new Vector3({ z: 1 }));
+	this.addRelativeVertex(5, new Vector3([ -this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ aU0, aV1 ]), new Vector3({ z: 1 }));
 
-	this.addRelativeVertex(3, new Vector3([ this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ 0, 0 ]), new Vector3({ z: -1 }));
-	this.addRelativeVertex(4, new Vector3([ this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ 1, 1 ]), new Vector3({ z: 1 }));
-	this.addRelativeVertex(5, new Vector3([ -this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ 0, 1 ]), new Vector3({ z: 1 }));
+	this.addRelativeVertex(6, new Vector3([ -this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ aU0, aV0 ]), new Vector3({ z: 1 }));
+	this.addRelativeVertex(7, new Vector3([ this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ aU1, aV0 ]), new Vector3({ z: 1 }));
+	this.addRelativeVertex(8, new Vector3([ -this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ aU0, aV1 ]), new Vector3({ x: -1 }));
 
-	this.addRelativeVertex(6, new Vector3([ -this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ 0, 0 ]), new Vector3({ z: 1 }));
-	this.addRelativeVertex(7, new Vector3([ this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ 1, 0 ]), new Vector3({ z: 1 }));
-	this.addRelativeVertex(8, new Vector3([ -this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ 0, 1 ]), new Vector3({ x: -1 }));
+	this.addRelativeVertex(9, new Vector3([ -this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ aU1, aV1 ]), new Vector3({ x: -1 }));
+	this.addRelativeVertex(10, new Vector3([ -this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ aU1, aV0 ]), new Vector3({ x: -1 }));
+	this.addRelativeVertex(11, new Vector3([ -this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ aU0, aV0 ]), new Vector3({ x: -1 }));
 
-	this.addRelativeVertex(9, new Vector3([ -this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ 1, 1 ]), new Vector3({ x: -1 }));
-	this.addRelativeVertex(10, new Vector3([ -this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ 1, 0 ]), new Vector3({ x: -1 }));
-	this.addRelativeVertex(11, new Vector3([ -this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ 0, 0 ]), new Vector3({ x: -1 }));
+	this.addRelativeVertex(12, new Vector3([ this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ aU0, aV1 ]), new Vector3({ x: 1 }));
+	this.addRelativeVertex(13, new Vector3([ this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ aU1, aV1 ]), new Vector3({ x: 1 }));
+	this.addRelativeVertex(14, new Vector3([ this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ aU1, aV0 ]), new Vector3({ x: 1 }));
 
-	this.addRelativeVertex(12, new Vector3([ this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ 0, 1 ]), new Vector3({ x: 1 }));
-	this.addRelativeVertex(13, new Vector3([ this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ 1, 1 ]), new Vector3({ x: 1 }));
-	this.addRelativeVertex(14, new Vector3([ this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ 1, 0 ]), new Vector3({ x: 1 }));
+	this.addRelativeVertex(15, new Vector3([ this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ aU0, aV0 ]), new Vector3({ x: 1 }));
+	this.addRelativeVertex(16, new Vector3([ -this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ aU0, aV1 ]), new Vector3({ y: -1 }));
+	this.addRelativeVertex(17, new Vector3([ this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ aU1, aV1 ]), new Vector3({ y: -1 }));
 
-	this.addRelativeVertex(15, new Vector3([ this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ 0, 0 ]), new Vector3({ x: 1 }));
-	this.addRelativeVertex(16, new Vector3([ -this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ 0, 1 ]), new Vector3({ y: -1 }));
-	this.addRelativeVertex(17, new Vector3([ this.width / 2, -this.height / 2, -this.depth / 2 ]), new Vector2([ 1, 1 ]), new Vector3({ y: -1 }));
+	this.addRelativeVertex(18, new Vector3([ this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ aU1, aV0 ]), new Vector3({ y: -1 }));
+	this.addRelativeVertex(19, new Vector3([ -this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ aU0, aV0 ]), new Vector3({ y: -1 }));
+	this.addRelativeVertex(20, new Vector3([ -this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ aU0, aV1 ]), new Vector3({ y: 1 }));
 
-	this.addRelativeVertex(18, new Vector3([ this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ 1, 0 ]), new Vector3({ y: -1 }));
-	this.addRelativeVertex(19, new Vector3([ -this.width / 2, -this.height / 2, this.depth / 2 ]), new Vector2([ 0, 0 ]), new Vector3({ y: -1 }));
-	this.addRelativeVertex(20, new Vector3([ -this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ 0, 1 ]), new Vector3({ y: 1 }));
+	this.addRelativeVertex(21, new Vector3([ this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ aU1, aV1 ]), new Vector3({ y: 1 }));
+	this.addRelativeVertex(22, new Vector3([ this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ aU1, aV0 ]), new Vector3({ y: 1 }));
+	this.addRelativeVertex(23, new Vector3([ -this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ aU0, aV0 ]), new Vector3({ y: 1 }));
+} });
 
-	this.addRelativeVertex(21, new Vector3([ this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ 1, 1 ]), new Vector3({ y: 1 }));
-	this.addRelativeVertex(22, new Vector3([ this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ 1, 0 ]), new Vector3({ y: 1 }));
-	this.addRelativeVertex(23, new Vector3([ -this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ 0, 0 ]), new Vector3({ y: 1 }));
+function RectangularPrismGeometry(layer, parameters)
+{
+	parameters = parameters || { };
+	this.width = parameters.width || 1;
+	this.height = parameters.height || 1;
+	this.depth = parameters.depth || 1;
+	this.texture = parameters.texture instanceof Texture ? parameters.texture : layer.game.renderer.textureMap.textures[0];
+	Geometry.call(this, parameters, layer, 24);
 }
 
 function ElipticalPrism(parameters)
@@ -483,7 +507,7 @@ Object.defineProperty(Texture.prototype, "getAbsoluteU", { value: function(relat
 	if(!uvs)
 		return NaN;
 	var uStart = uvs[0];
-	return uStart + relativeU * (uvs[2] - uStart);
+	return uStart + relativeU * uvs[2];
 } });
 Object.defineProperty(Texture.prototype, "getAbsoluteV", { value: function(relativeV)
 {
@@ -491,7 +515,7 @@ Object.defineProperty(Texture.prototype, "getAbsoluteV", { value: function(relat
 	if(!uvs)
 		return NaN;
 	var vStart = uvs[1];
-	return vStart + relativeV * (uvs[3] - vStart);
+	return vStart + relativeV * uvs[3];
 } });
 
 function Texture(index, textureMap, image)
@@ -514,9 +538,6 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 	var availableBoxesMap = [ [ 0 ] ];
 	availableBoxesMap[-1] = [ 0 ];
 	availableBoxesMap[0][-1] = [ 0 ];
-	var availableBoxesInverseMap = [ [ 0 ] ];
-	availableBoxesInverseMap[-1] = [ 0 ];
-	availableBoxesInverseMap[0][-1] = [ 0 ];
 	var availableBoxes = [ [ 0, 0, length, length] ];
 	var splitBoxesWidth = NaN;
 	var splitBoxesHeight = NaN;
@@ -524,6 +545,7 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 	var textureUVs = [ ];
 	for(var i = 0; textureUVs && i < textures.length; i++)
 	{
+		var texture = textures[i];
 		var width = texture.image.width;
 		var height = texture.image.height;
 		if(width != splitBoxesWidth && height != splitBoxesHeight)
@@ -531,7 +553,6 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 			availableBoxes.forEach(function(availableBox)
 			{
 				availableBoxesMap[availableBox[0]][availableBox[1]] += splitBoxes.length;
-				availableBoxesInverseMap[availableBox[1]][availableBox[0]] += splitBoxes.length;
 			});
 			splitBoxes.forEach(function(splitBox, index)
 			{
@@ -542,6 +563,7 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 				{
 					vArray = availableBoxesMap[splitBox[0]] = [ ];
 					vArray[-1] = [ ];
+					availableBoxesMap[-1].push(splitBox[0]);
 				}
 				vArray[splitBox[1]] = index;
 				vArray[-1].push(splitBox[1]);
@@ -550,58 +572,159 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 			availableBoxesMap[-1].sort();
 			availableBoxes = splitBoxes.concat(availableBoxes);
 			splitBoxes = [ ];
+			var overlappingBoxes = [ ];
 			for(var j = 0; j < availableBoxes.length; j++)
 			{
-				var availableBox = availableBoxes[i];
-				var quadrants = [ [ [ availableBox[0], availableBox[1], width, height ] ], [ [ availableBox[0], availableBox[1] - height, width, height ] ], [ [ availableBox[0] - width, availableBox[1], width, height ] ], [ [ availableBox[0] - width, availableBox[1] - height, width, height ] ] ];
-				var boxesInArea = [ [ ], [ ], [ ], [ ] ];
-				quadrants.forEach(function(quadrant, quadrantIndex)
+				var availableBox = availableBoxes[j];
+				if(availableBox)
 				{
-					var quadrantBox = quadrant[0];
-					if(quadrantBox[0] < 0 || quadrantBox[1] < 0)
-						return;
-					for(var k = 0, u = availableBoxesMap[-1][0]; k < availableBoxesMap[-1].length && u < quadrantBox[0] + quadrantBox[2]; u = availableBoxesMap[-1][++k])
+					var quadrants = [ [ [ availableBox[0], availableBox[1], width, height ] ], [ [ availableBox[0], availableBox[1] - height, width, height ] ], [ [ availableBox[0] - width, availableBox[1], width, height ] ], [ [ availableBox[0] - width, availableBox[1] - height, width, height ] ] ];
+					var boxesInArea = [ [ ], [ ], [ ], [ ] ];
+					quadrants.forEach(function(quadrant, quadrantIndex)
 					{
-						if(u < quadrantBox[0])
-							continue;
-						var vArray = availableBoxesMap[u];
-						for(var l = 0, v = vArray[-1][0]; l < vArray[-1].length && v < quadrantBox[1] + quadrantBox[3]; v = vArray[-1][++l])
+						var quadrantBox = quadrant[0];
+						if(quadrantBox[0] < 0 || quadrantBox[1] < 0)
+							return;
+						for(var k = 0, u = availableBoxesMap[-1][0]; k < availableBoxesMap[-1].length && u < quadrantBox[0] + quadrantBox[2]; u = availableBoxesMap[-1][++k])
 						{
-							if(v < quadrantBox[1])
+							if(u < quadrantBox[0])
 								continue;
-							var affectedBox = availableBoxes[vArray[v]];
-							quadrant.forEach(function(remainingBox, index)
+							var vArray = availableBoxesMap[u];
+							for(var l = 0, v = vArray[-1][0]; l < vArray[-1].length && v < quadrantBox[1] + quadrantBox[3]; v = vArray[-1][++l])
 							{
-								var topBox = [ Math.max(affectedBox[0], remainingBox[0]), Math.max(affectedBox[1], remainingBox[1]), 0, 0 ];
-								topBox[2] = Math.max(affectedBox[0] + affectedBox[2], remainingBox[0] + remainingBox[2]) - topBox[0];
-								topBox[3] = Math.max(affectedBox[1] + affectedBox[3], remainingBox[1] + remainingBox[3]) - topBox[1];
-								var bottomBox = [ Math.max(affectedBox[0], remainingBox[0]), Math.min(affectedBox[1] + affectedBox[3], remainingBox[1] + remainingBox[3]), 0, 0 ];
-								bottomBox[2] = Math.max(affectedBox[0] + affectedBox[2], remainingBox[0] + remainingBox[2]) - bottomBox[0];
-								bottomBox[3] = Math.max(affectedBox[1] + affectedBox[3], remainingBox[1] + remainingBox[3]) - bottomBox[1];
-								var leftBox = [ topBox[0], topBox[1] + topBox[3], 0, 0 ];
-								leftBox[2] = Math.max(affectedBox[0], remainingBox[0]) - leftBox[0];
-								leftBox[3] = Math.max(affectedBox[1], remainingBox[1]) - leftBox[1];
-								var rightBox = [ Math.min(affectedBox[0] + affectedBox[2], remainingBox[0] + remainingBox[2]), topBox[1] + topBox[3], 0, 0 ];
-								rightBox[2] = Math.max(affectedBox[0] + affectedBox[2], remainingBox[0] + remainingBox[2]) - rightBox[0];
-								rightBox[3] = Math.max(affectedBox[1] + affectedBox[3], remainingBox[1] + remainingBox[3]) - rightBox[1];
-								if(topBox[2] * topBox[3] + bottomBox[2] * bottomBox[3] + leftBox[2] * leftBox[3] + rightBox[2] * rightBox[3] > 0)
+								if(v < quadrantBox[1])
+									continue;
+								var affectedBox = availableBoxes[vArray[v]];
+								quadrant.forEach(function(remainingBox, index)
 								{
-								}
+									if(remainingBox[0] >= affectedBox[0] && remainingBox[1] >= affectedBox[1] && remainingBox[0] + remainingBox[2] <= affectedBox[0] + affectedBox[2] && remainingBox[1] + remainingBox[3] <= affectedBox[1] + affectedBox[3])
+										delete quadrant[index];
+									else if(remainingBox[1] == affectedBox[1] && remainingBox[3] == affectedBox[3])
+									{
+										var leftBox = [ remainingBox[0], remainingBox[1], remainingBox[1], Math.max(affectedBox[0] - remainingBox[0], 0), remainingBox[3] ];
+										var rightBox = [ affectedBox[0] + affectedBox[2], remainingBox[1], Math.max(remainingBox[0] + remainingBox[2] - affectedBox[0] - affectedBox[2], 0), remainingBox[3] ];
+										var replacedRemaining;
+										if(leftBox[2] * leftBox[3] > 0)
+											replacedRemaining = quadrant[index] = leftBox;
+										if(rightBox[2] * rightBox[3] > 0)
+											if(replacedRemaining)
+												quadrant.push(rightBox);
+											else
+												quadrant[index] = rightBox;
+									}
+									else
+									{
+										var topBox = [ remainingBox[0], remainingBox[1], remainingBox[2], Math.max(affectedBox[1] - remainingBox[1], 0) ];
+										var bottomBox = [ remainingBox[0], affectedBox[1] + affectedBox[3], remainingBox[2], Math.max(remainingBox[1] + remainingBox[3] - affectedBox[1] - affectedBox[3], 0) ];
+										var leftBox = [ remainingBox[0], affectedBox[1], Math.max(affectedBox[0] - remainingBox[0], 0), affectedBox[3] ];
+										var rightBox = [ affectedBox[0] + affectedBox[2], affectedBox[1], Math.max(remainingBox[0] + remainingBox[2] - affectedBox[0] - affectedBox[2], 0), affectedBox[3] ];
+										var replacedRemaining;
+										if(topBox[2] * topBox[3] > 0)
+											replacedRemaining = quadrant[index] = topBox;
+										if(bottomBox[2] * bottomBox[3] > 0)
+											if(replacedRemaining)
+												quadrant.push(bottomBox);
+											else
+												replacedRemaining = quadrant[index] = bottomBox;
+										if(leftBox[2] * leftBox[3] > 0)
+											if(replacedRemaining)
+												quadrant.push(leftBox);
+											else
+												replacedRemaining = quadrant[index] = leftBox;
+										if(rightBox[2] * rightBox[3] > 0)
+											if(replacedRemaining)
+												quadrant.push(rightBox);
+											else
+												quadrant[index] = rightBox;
+									}
+								});
+								boxesInArea[quadrantIndex].push(vArray[v]);
+							}
+						}
+						if(!quadrant.find(function(remainingBox)
+						{
+							return remainingBox;
+						}))
+						{
+							var splitBoxIndex = splitBoxes.push(quadrantBox) - 1;
+							boxesInArea[quadrantIndex].forEach(function(boxInArea)
+							{
+								if(overlappingBoxes[boxInArea])
+									overlappingBoxes[boxInArea].push(splitBoxIndex);
+								else
+									overlappingBoxes[boxInArea] = [ splitBoxIndex ];
 							});
-							boxesInArea[quadrantIndex].push(affectedBox);
+						}
+					});
+				}
+			}
+			overlappingBoxes.forEach(function(splitBoxIndices, overlappingBoxIndex)
+			{
+				var overlappingBox = availableBoxes[overlappingBoxIndex];
+				var vArray = availableBoxesMap[overlappingBox[0]];
+				if(vArray[-1].length <= 1)
+					if(availableBoxesMap[-1].length <= 1)
+					{
+						availableBoxesMap = [ ];
+						availableBoxesMap[-1] = [ ];
+					}
+					else
+					{
+						delete availableBoxesMap[overlappingBox[0]];
+						availableBoxesMap[-1].splice(availableBoxesMap[-1].indexOf(overlappingBox[0]), 1);
+					}
+				else
+				{
+					delete vArray[overlappingBox[1]];
+					vArray[-1].splice(vArray[-1].indexOf(overlappingBox[1]), 1);
+				}
+				delete availableBoxes[overlappingBoxIndex];
+				var uDivisionPoints = [ overlappingBox[0], overlappingBox[0] + overlappingBox[2] ];
+				var vDivisionPoints = [ overlappingBox[1], overlappingBox[1] + overlappingBox[3] ];
+				splitBoxIndices.forEach(function(splitBoxIndex)
+				{
+					var splitBox = splitBoxes[splitBoxIndex];
+					if(!uDivisionPoints.includes(splitBox[0]))
+						uDivisionPoints.push(splitBox[0]);
+					if(!uDivisionPoints.includes(splitBox[0] + splitBox[2]))
+						uDivisionPoints.push(splitBox[0] + splitBox[2]);
+					if(!vDivisionPoints.includes(splitBox[1]))
+						vDivisionPoints.push(splitBox[1]);
+					if(!vDivisionPoints.includes(splitBox[1] + splitBox[3]))
+						vDivisionPoints.push(splitBox[1] + splitBox[3]);
+				});
+				uDivisionPoints.sort();
+				vDivisionPoints.sort();
+				for(var j = 0, u = uDivisionPoints[0]; j + 1 < uDivisionPoints.length; u = uDivisionPoints[++j])
+					for(var k = 0, v = vDivisionPoints[0]; k + 1 < vDivisionPoints.length; v = vDivisionPoints[++k])
+					{
+						if(splitBoxIndices.every(function(splitBoxIndex)
+						{
+							var splitBox = splitBoxes[splitBoxIndex];
+							return u < splitBox[0] || u >= splitBox[0] + splitBox[2] || v < splitBox[1] || v >= splitBox[1] + splitBox[3];
+						}))
+						{
+							var newBoxIndex = availableBoxes.push([ u, v, uDivisionPoints[j + 1] - u, vDivisionPoints[k + 1] - v ]) - 1;
+							var vArray = availableBoxesMap[u];
+							if(!vArray)
+							{
+								vArray = availableBoxesMap[u] = [ ];
+								vArray[-1] = [ ];
+								availableBoxesMap[-1].push(u);
+							}
+							vArray[v] = newBoxIndex;
+							vArray[-1].push(v);
+							vArray[-1].sort();
 						}
 					}
-				});
-			}
+			});
 			splitBoxesWidth = width;
 			splitBoxesHeight = height;
 			splitBoxes.reverse();
 		}
 		var splitBox = splitBoxes.pop();
 		if(splitBox)
-		{
-			
-		}
+			textureUVs.push(splitBox);
 		else
 			textureUVs = undefined;
 	}
@@ -660,9 +783,25 @@ Object.defineProperty(TextureMap.prototype, "restitchTextures", { value: functio
 		stitchedPixels += texture.image.width * texture.image.height;
 	});
 	var textureUVs;
-	for(var i = 0; !textureUVs; i++)
-		textureUVs = TextureMap.calculateTextureUVs(i ** 2, texures);
-	this.renderer.bindTextureMap();
+	var i = 0;
+	for(; 2 ** i < Infinity && !textureUVs;)
+		textureUVs = TextureMap.calculateTextureUVs(2 ** ++i, textures);
+	var stitchCanvas = document.createElement("canvas");
+	stitchCanvas.width = stitchCanvas.height = 2 ** i;
+	var stitchContext = stitchCanvas.getContext("2d");
+	textureUVs.forEach(function(textureUV, index)
+	{
+		var texture = textures[index];
+		stitchContext.drawImage(texture.image, textureUV[0], textureUV[1], textureUV[2], textureUV[3]);
+		this[texture.index] = textureUV.map(function(element) { return element / 2 ** i; });
+	}, this);
+	this.stitched.src = stitchCanvas.toDataURL();
+	this.stitched.addEventListener("load", this.onStichedLoad = wrapFunction(function()
+	{
+		this.stitched.removeEventListener("load", this.onStitchedLoad);
+		this.onStitchedLoad = undefined;
+		this.renderer.bindTextureMap();
+	}, this));
 } });
 
 function TextureMap(parameters)
@@ -687,6 +826,7 @@ function TextureMap(parameters)
 		this.onStitchedLoad = undefined;
 		this.renderer.bindTextureMap();
 	}, this));
+	this[0] = [ 0, 0, 1, 1 ];
 }
 
 Object.defineProperty(VertexBufferAllocation.prototype, "disallocate", { value: function()
@@ -1402,8 +1542,22 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function(delta
 	{
 		this.shaders.tryRecompileShaders(this);
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+		if(this.textureMap.modified)
+		{
+			this.gl.bindTexture(this.gl.TEXTURE_2D, this.gl.createTexture());
+			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.textureMap.stitched);
+			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+			this.gl.generateMipmap(this.gl.TEXTURE_2D);
+			this.gl.activeTexture(this.gl.TEXTURE0);
+			this.textureMap.modified = false;
+		}
 		this.layers.forEach(function(layer)
 		{
+			this.layers.forEach(function(layer)
+			{
+				layer.onTextureMapChange(this);
+			});
 			if(!(layer.vertexBuffer.vertices instanceof Float32Array))
 			{
 				layer.vertexBuffer.vertices = new Float32Array(layer.vertexBuffer.vertices);
@@ -1463,7 +1617,6 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function(delta
 				this.gl.uniformMatrix3fv(this.shaders.uniforms.normalMatrix, false, mat3.transpose([ ], mat3.invert([ ], mat3.fromMat4([ ], layer.modelView.matrix))));
 				layer.modelView.matrix.modified = false;
 			}
-			this.gl.activeTexture(this.gl.TEXTURE0);
 			this.gl.uniform1i(this.shaders.uniforms.uSampler, 0);
 			this.gl.drawElements(this.gl.TRIANGLES, layer.vertexBuffer.triangles.length, this.gl.UNSIGNED_SHORT, 0);
 		}, this);
@@ -1493,11 +1646,7 @@ Object.defineProperty(WebGLRenderer.prototype, "resize", { value: function()
 } });
 Object.defineProperty(WebGLRenderer.prototype, "bindTextureMap", { value: function()
 {
-	this.gl.bindTexture(this.gl.TEXTURE_2D, this.gl.createTexture());
-	this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.textureMap.stitched);
-	this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-	this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
-	this.gl.generateMipmap(this.gl.TEXTURE_2D);
+	this.textureMap.modified = true;
 } });
 
 function WebGLRenderer(parameters)
@@ -1790,6 +1939,13 @@ function Lighting(parameters)
 
 Layer.prototype = Object.create(Watchable.prototype);
 Layer.prototype.constructor = Layer;
+Object.defineProperty(Layer.prototype, "onTextureMapChange", { value: function(renderer)
+{
+	this.geometries.forEach(function(geometry)
+	{
+		geometry.onTextureMapChange(renderer);
+	});
+} });
 
 function Layer(parameters)
 {
