@@ -15,7 +15,7 @@ function averageDegrees(a, b)
 
 function wrapFunction(func, thisArg)
 {
-	return function() { func.apply(thisArg, Array.from(arguments)); };
+	return function() { return func.apply(thisArg, Array.from(arguments)); };
 }
 
 function callSuper(thisArg, name)
@@ -126,7 +126,11 @@ function WatchableValue(parameters)
 
 Updatable.prototype = Object.create(Watchable.prototype);
 Updatable.prototype.constructor = Updatable;
-Object.defineProperty(Updatable.prototype, "requestUpdate", { value: function() { if(!Number.isInteger(this.updateRequestIndex)) { var updatable = this; this.updateRequestIndex = this.game.pushUpdateRequest(function(delta) { updatable.updateInternal(delta); }); } } });
+Object.defineProperty(Updatable.prototype, "requestUpdate", { value: function()
+{
+	if(this.requestUpdates && !Number.isInteger(this.updateRequestIndex))
+		this.updateRequestIndex = this.game.pushUpdateRequest(wrapFunction(this.updateInternal, this));
+} });
 Object.defineProperty(Updatable.prototype, "updateInternal", { value: function(delta) { this.updateRequestIndex = undefined; this.updatePre(delta); this.update(delta); this.updatePost(delta); this.notifyWatchers(); } });
 Object.defineProperty(Updatable.prototype, "updatePre", { value: function(delta) { } });
 Object.defineProperty(Updatable.prototype, "update", { value: function(delta) { } });
@@ -137,6 +141,7 @@ function Updatable(parameters)
 	parameters = parameters || { };
 	Watchable.call(this, parameters);
 	this.game = parameters.game;
+	this.requestUpdates = parameters.requestUpdates == false ? false : true;
 }
 
 Vector.prototype = Object.create(Watchable.prototype);
@@ -246,7 +251,7 @@ Object.defineProperty(Vector3.prototype, "rotateMatrix", { value: function(x, y,
 {
 	return new Vector3(vec3.transformMat3([ ], vec3.transformMat3([ ], vec3.transformMat3([ ], this, y), x), z));
 } });
-Object.defineProperty(Vector3.prototype, 2, { get: function() { return this.z.value; }, set: function(z) { console.log(z);this.z.value = z; } });
+Object.defineProperty(Vector3.prototype, 2, { get: function() { return this.z.value; }, set: function(z) { this.z.value = z; } });
 Object.defineProperty(Vector3.prototype, "length", { value: 3 });
 
 function Vector3(parameters)
@@ -364,6 +369,7 @@ Object.defineProperty(Geometry.prototype, "updatePre", { value: function()
 	var matrixX = [ 1, 0, 0, 0, cosX, -sinX, 0, sinX, cosX ];
 	var matrixZ = [ cosZ, -sinZ, 0, sinZ, cosZ, 0, 0, 0, 1 ];
 	var x = this.position[0], y = this.position[1], z = this.position[2];
+	this.requestUpdates = false;
 	for(var i = 0; i < this.relativeVertices.length; i++)
 	{
 		var relativeVertex = this.relativeVertices[i];
@@ -375,6 +381,7 @@ Object.defineProperty(Geometry.prototype, "updatePre", { value: function()
 			this.allocation.setVertex(i, vector[0] + x, vector[1] + y, vector[2] + z, uv[0], uv[1], normal[0], normal[1], normal[2]);
 		}
 	}
+	this.requestUpdates = true;
 } });
 
 function Geometry(parameters, layer, vertices, triangles)
@@ -396,6 +403,7 @@ RectangleGeometry.prototype.constructor = RectangleGeometry;
 Object.defineProperty(RectangleGeometry.prototype, "buildGeometry", { value: function(renderer)
 {
 	callSuper(this, "buildGeometry", renderer);
+	this.requestUpdates = false;
 	var index0 = this.allocation.getVertexIndex(0), index2 = this.allocation.getVertexIndex(2);
 	this.allocation.setTriangle(0, index0, this.allocation.getVertexIndex(1), index2);
 	this.allocation.setTriangle(1, index0, index2, this.allocation.getVertexIndex(3));
@@ -407,6 +415,8 @@ Object.defineProperty(RectangleGeometry.prototype, "buildGeometry", { value: fun
 	this.addRelativeVertex(1, new Vector3({ x: this.width / 2, y: -this.height / 2 }), new Vector2({ x: aU1, y: aV1 }), new Vector3({ z: -1 }));
 	this.addRelativeVertex(2, new Vector3({ x: this.width / 2, y: this.height / 2 }), new Vector2({ x: aU1, y: aV0 }), new Vector3({ z: -1 }));
 	this.addRelativeVertex(3, new Vector3({ x: -this.width / 2, y: this.height / 2 }), new Vector2({ x: aU0, y: aV0 }), new Vector3({ z: -1 }));
+	this.requestUpdates = true;
+
 } });
 
 function RectangleGeometry(parameters, layer)
@@ -424,6 +434,7 @@ RectangularPrismGeometry.prototype.constructor = RectangularPrismGeometry;
 Object.defineProperty(RectangularPrismGeometry.prototype, "buildGeometry", { value: function(renderer)
 {
 	callSuper(this, "buildGeometry", renderer);
+	this.requestUpdates = false;
 	var index0 = this.allocation.getVertexIndex(0), index2 = this.allocation.getVertexIndex(2);
 	var index4 = this.allocation.getVertexIndex(4), index6 = this.allocation.getVertexIndex(6);
 	var index8 = this.allocation.getVertexIndex(8), index10 = this.allocation.getVertexIndex(10);
@@ -471,6 +482,7 @@ Object.defineProperty(RectangularPrismGeometry.prototype, "buildGeometry", { val
 	this.addRelativeVertex(21, new Vector3([ this.width / 2, this.height / 2, this.depth / 2 ]), new Vector2([ aU1, aV1 ]), new Vector3({ y: 1 }));
 	this.addRelativeVertex(22, new Vector3([ this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ aU1, aV0 ]), new Vector3({ y: 1 }));
 	this.addRelativeVertex(23, new Vector3([ -this.width / 2, this.height / 2, -this.depth / 2 ]), new Vector2([ aU0, aV0 ]), new Vector3({ y: 1 }));
+	this.requestUpdates = true;
 } });
 
 function RectangularPrismGeometry(layer, parameters)
@@ -1030,8 +1042,11 @@ Object.defineProperty(VertexBuffer.prototype, "allocate", { value: function(vert
 		disallocations.push([ to, disallocation[1] ]);
 	});
 	this.disallocations = disallocations;
+	var vertexBuffer = this.vertices.glBuffer;
 	var vertices = this.vertices instanceof Float32Array ? Array.from(this.vertices) : this.vertices;
+	var uvBuffer = this.uvs.glBuffer;
 	var uvs = this.uvs instanceof Float32Array ? Array.from(this.uvs) : this.uvs;
+	var normalBuffer = this.normals.glBuffer;
 	var normals = this.normals instanceof Float32Array ? Array.from(this.normals) : this.normals;
 	vertexRanges.forEach(function(range)
 	{
@@ -1043,8 +1058,11 @@ Object.defineProperty(VertexBuffer.prototype, "allocate", { value: function(vert
 		}
 	});
 	this.vertices = vertices;
+	this.vertices.glBuffer = vertexBuffer;
 	this.uvs = uvs;
+	this.uvs.glBuffer = uvBuffer;
 	this.normals = normals;
+	this.normals.glBuffer = normalBuffer;
 	this.triangles = new Uint16Array(Array.from(this.triangles).concat(new Array(triangleCount * 3).fill(0)));
 	var allocation = new VertexBufferAllocation(this, this.allocations.length, vertexRanges, [ this.triangles.length / 3 - triangleCount, this.triangles.length / 3 ]);
 	this.allocations.push(allocation);
@@ -1470,9 +1488,13 @@ Object.defineProperty(Renderer.prototype, "render", { value: function(delta)
 	this.updateRequests = [ ];
 	updateRequests.forEach(function(request)
 	{
-		if(request)
-			request();
-	});
+		if(request())
+		{
+			index = this.updateRequests.push(request) - 1;
+			if(request.reindexListener)
+				request.reindexListener(index);
+		}
+	}, this);
 	return true;
 } });
 Object.defineProperty(Renderer.prototype, "resize", { value: function()
@@ -1552,40 +1574,57 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function(delta
 			this.gl.activeTexture(this.gl.TEXTURE0);
 			this.textureMap.modified = false;
 		}
-		this.layers.forEach(function(layer)
+		if(this.textureMap.modified)
 		{
 			this.layers.forEach(function(layer)
 			{
 				layer.onTextureMapChange(this);
 			});
+			this.textureMap.modified = false;
+		}
+		this.layers.forEach(function(layer)
+		{
 			if(!(layer.vertexBuffer.vertices instanceof Float32Array))
 			{
-				layer.vertexBuffer.vertices = new Float32Array(layer.vertexBuffer.vertices);
-				layer.vertexBuffer.vertices.modified = true;
+				var glBuffer = layer.vertexBuffer.vertices.glBuffer;
+				var vertices = layer.vertexBuffer.vertices = new Float32Array(layer.vertexBuffer.vertices);
+				if(!glBuffer)
+					this.bindShaderAttribute(glBuffer = this.gl.createBuffer(), 0, this.shaders.attributes.vertexPosition, layer.vertexBuffer.vertices, { });
+				vertices.glBuffer = glBuffer;
+				vertices.modified = true;
 			}
 			if(!(layer.vertexBuffer.uvs instanceof Float32Array))
 			{
-				layer.vertexBuffer.uvs = new Float32Array(layer.vertexBuffer.uvs);
-				layer.vertexBuffer.uvs.modified = true;
+				var glBuffer= layer.vertexBuffer.uvs.glBuffer;
+				var uvs = layer.vertexBuffer.uvs = new Float32Array(layer.vertexBuffer.uvs);
+				if(!glBuffer)
+					this.bindShaderAttribute(glBuffer = this.gl.createBuffer(), 0, this.shaders.attributes.textureCoord, layer.vertexBuffer.uvs, { components: 2 });
+				uvs.glBuffer = glBuffer;
+				uvs.modified = true;
 			}
 			if(!(layer.vertexBuffer.normals instanceof Float32Array))
 			{
-				layer.vertexBuffer.normals = new Float32Array(layer.vertexBuffer.normals);
-				layer.vertexBuffer.normals.modified = true;
+				var glBuffer = layer.vertexBuffer.normals.glBuffer;
+				var normals = layer.vertexBuffer.normals = new Float32Array(layer.vertexBuffer.normals);
+				if(!glBuffer)
+					this.bindShaderAttribute(glBuffer = this.gl.createBuffer(), 0, this.shaders.attributes.normalDirection, layer.vertexBuffer.normals, { });
+				normals.glBuffer = glBuffer;
+				normals.modified = true;
 			}
 			if(layer.vertexBuffer.vertices.modified)
 			{
-				this.putShaderAttribute(0, this.shaders.attributes.vertexPosition, layer.vertexBuffer.vertices, { });
+				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, layer.vertexBuffer.vertices.glBuffer);
+				this.gl.bufferData(this.gl.ARRAY_BUFFER, layer.vertexBuffer.vertices, this.gl.STATIC_DRAW);
 				layer.vertexBuffer.vertices.modified = false;
 			}
 			if(layer.vertexBuffer.uvs.modified)
 			{
-				this.putShaderAttribute(0, this.shaders.attributes.textureCoord, layer.vertexBuffer.uvs, { components: 2 });
+				
 				layer.vertexBuffer.uvs.modified = false;
 			}
 			if(layer.vertexBuffer.normals.modified)
 			{
-				this.putShaderAttribute(0, this.shaders.attributes.normalDirection, layer.vertexBuffer.normals, { });
+
 				layer.vertexBuffer.normals.modified = false;
 			}
 			var indexBuffer = this.gl.createBuffer();
@@ -1624,13 +1663,13 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function(delta
 	}
 	return false;
 } });
-Object.defineProperty(WebGLRenderer.prototype, "putShaderAttribute", { value: function(type, location, source, parameters)
+Object.defineProperty(WebGLRenderer.prototype, "bindShaderAttribute", { value: function(buffer, type, location, source, parameters)
 {
 	switch(type)
 	{
 		case 0:
 		{
-			this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.gl.createBuffer());
+			this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
 			this.gl.bufferData(this.gl.ARRAY_BUFFER, source, this.gl.STATIC_DRAW);
 			this.gl.vertexAttribPointer(location, parameters.components || 3, parameters.type || this.gl.FLOAT, parameters.normalize || false, parameters.stride || 0, parameters.offset || 0);
 			this.gl.enableVertexAttribArray(location);
@@ -2059,14 +2098,14 @@ function Level(parameters)
 
 Game.prototype = Object.create(ElementEventListener.prototype);
 Game.prototype.constructor = Game;
-Object.defineProperty(Game.prototype, "pushUpdateRequest", { value: function(request) { return this.renderer.updateRequests.push(request) - 1; }, writable: true });
+Object.defineProperty(Game.prototype, "pushUpdateRequest", { value: function(request) {  return this.renderer.updateRequests.push(request) - 1; }, writable: true });
 Object.defineProperty(Game.prototype, "replaceUpdateRequest", { value: function(request, index)
 {
 	var oldRequest = this.renderer.updateRequests[index];
 	this.renderer.updateRequests[index] = request;
 	return oldRequest;
 } });
-Object.defineProperty(Game.prototype, "pullUpdateRequest", { value: function(index) { this.renderer.updateRequests.splice(index, 1); }, writable: true });
+Object.defineProperty(Game.prototype, "pullUpdateRequest", { value: function(index) { delete this.renderer.updateRequests[index]; }, writable: true });
 Object.defineProperty(Game.prototype, "unload", { value: function(event)
 {
 	this.save();
@@ -2090,7 +2129,7 @@ function Game(parameters)
 	var updateRequests = parameters.renderer.updateRequests || [ ];
 	this.pushUpdateRequest = function(request) { return updateRequests.push(request); };
 	this.replaceUpdateRequest = function(request, index) { var oldRequest = updateRequests[index]; updateRequests[index] = request; return oldRequest; };
-	this.pullUpdateRequest = function(index) { updateRequests.splice(index, 1); };
+	this.pullUpdateRequest = function(index) { delete updateRequests[index]; };
 	this.directory = parameters.directory || { };
 	this.options = { controls: { gamepad: { deadZone: .3 } } };
 	if(!parameters.controls)
