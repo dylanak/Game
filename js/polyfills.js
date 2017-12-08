@@ -12,6 +12,20 @@ Array.map = function(arrayLike, callback, thisArg)
 		ret[i] = callback.call(thisArg, arrayLike[i], i, arrayLike);
 	return ret;
 }
+Array.every = function(arrayLike, callback, thisArg)
+{
+	for(var i = 0; i < arrayLike.length; i++)
+		if(!callback(arrayLike[i], i, arrayLike))
+			return false;
+	return true;
+}
+Array.some = function(arrayLike, callback, thisArg)
+{
+	for(var i = 0; i < arrayLike.length; i++)
+		if(callback(arrayLike[i], i, arrayLike))
+			return true;
+	return false;
+}
 Object.defineProperty(Math, "rad", { value: function(deg)
 {
 	return deg * Math.DTR;
