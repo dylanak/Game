@@ -1,3 +1,17 @@
+function emptyFunction()
+{
+}
+
+function alwaysFalse()
+{
+	return false;
+}
+
+function alwaysTrue()
+{
+	return true;
+}
+
 function isPowerOfTwo(value)
 {
 	return (value & (value - 1)) == 0;
@@ -15,7 +29,23 @@ function averageDegrees(a, b)
 
 function wrapFunction(func, thisArg)
 {
-	return function() { return func.apply(thisArg, Array.from(arguments)); };
+	return function callWrappedFunction()
+	{
+		return func.apply(thisArg, Array.from(arguments));
+	};
+}
+
+function wrapEventListener(func, thisArg)
+{
+	var argStrings = Array.from(arguments);
+	return function callWrappedEventListener(event)
+	{
+		event = event || window.event;
+		return func.apply(thisArg, argStrings.map(function propertyWithName(name)
+		{
+			return event[name];
+		}).slice(2));
+	};
 }
 
 function callSuper(thisArg, name)
@@ -26,23 +56,26 @@ function callSuper(thisArg, name)
 function requestText(source, onload)
 {
 	var request = new XMLHttpRequest();
-	request.onload = function() { onload(this.status == 200 ? this.responseText : ""); }
+	request.onload = function onTextLoad() { onload(this.status == 200 ? this.responseText : ""); }
 	request.open("GET", source);
 	request.send();
 }
 
-Object.defineProperty(ElementEventListener.prototype, "element", { get: function() { return this._element; }, set: function(element)
+Object.defineProperty(ElementEventListener.prototype, "element", { get: function getElement()
+{
+	return this._element;
+}, set: function setElement(element)
 {
 	var entries = Object.entries(this.eventListeners);
 	if(this._element)
-		entries.forEach(function(entry)
+		entries.forEach(function removeEventListenerFromPreviousElement(entry)
 		{
 			this._element.removeEventListener(entry[0], entry[1]);
 		}, this);
 	if(element)
 	{
 		this._element = element;
-		entries.forEach(function(entry)
+		entries.forEach(function addEventListenerToNewEntry(entry)
 		{
 			element.addEventListener(entry[0], entry[1]);
 		}, this);
@@ -50,7 +83,7 @@ Object.defineProperty(ElementEventListener.prototype, "element", { get: function
 	else
 		this.reset();
 } });
-Object.defineProperty(ElementEventListener.prototype, "addEventListener", { value: function(event, func) 
+Object.defineProperty(ElementEventListener.prototype, "addEventListener", { value: function addEventListener(event, func) 
 {
 	if(this.eventListeners[event])
 		this.removeEventListener(event);
@@ -58,13 +91,15 @@ Object.defineProperty(ElementEventListener.prototype, "addEventListener", { valu
 	if(this.element)
 		this.element.addEventListener(event, wrappedFunc);
 } });
-Object.defineProperty(ElementEventListener.prototype, "removeEventListener", { value: function(event)
+Object.defineProperty(ElementEventListener.prototype, "removeEventListener", { value: function removeEventListener(event)
 {
 	if(this.element)
 		this.element.removeEventListener(event, this.eventListeners[event]);
 	delete this.eventListeners[event];
 } });
-Object.defineProperty(ElementEventListener.prototype, "reset", { value: function() { } });
+Object.defineProperty(ElementEventListener.prototype, "reset", { value: function reset()
+{
+} });
 
 function ElementEventListener(parameters)
 {
@@ -76,7 +111,10 @@ function ElementEventListener(parameters)
 
 ElementFocusEventListener.prototype = Object.create(ElementEventListener.prototype);
 ElementFocusEventListener.prototype.constructor = ElementFocusEventListener;
-Object.defineProperty(ElementFocusEventListener.prototype, "focused", { get: function() { return this.element && document.hasFocus() && document.activeElement == this.element; } });
+Object.defineProperty(ElementFocusEventListener.prototype, "focused", { get: function isFocused()
+{
+	return this.element && document.hasFocus() && document.activeElement == this.element;
+} });
 
 function ElementFocusEventListener(parameters)
 {
@@ -84,8 +122,23 @@ function ElementFocusEventListener(parameters)
 	this.addEventListener("blur", this.reset);
 }
 
-Object.defineProperty(Watcher.prototype, "watchable", { set: function(watchable) { if(this.parameters[0] != watchable) { if(this.parameters[0]) this.parameters[0].removeWatcher(this); this.parameters[0] = watchable; watchable.addWatcher(this); this.notify(); return true; } return false; } })
-Object.defineProperty(Watcher.prototype, "notify", { value: function() { this.func.apply(this.thisArg, this.parameters); } });
+Object.defineProperty(Watcher.prototype, "watchable", { set: function setWatchable(watchable)
+{
+	if(this.parameters[0] != watchable)
+	{
+		if(this.parameters[0])
+			this.parameters[0].removeWatcher(this);
+		this.parameters[0] = watchable;
+		watchable.addWatcher(this);
+		this.notify();
+		return true;
+	}
+	return false;
+} });
+Object.defineProperty(Watcher.prototype, "notify", { value: function notify()
+{
+	this.func.apply(this.thisArg, this.parameters);
+} });
 
 function Watcher(watchable, func, thisArg, parameters)
 {
@@ -95,16 +148,40 @@ function Watcher(watchable, func, thisArg, parameters)
 	this.watchable = watchable;
 }
 
-Object.defineProperty(Watchable.prototype, "watch", { value: function(func, thisArg, parameters) { return new Watcher(this, func, thisArg, parameters || [ ]); } });
-Object.defineProperty(Watchable.prototype, "addWatcher", { value: function(watcher) { if(!this.watchers.includes(watcher)) { this.watchers.push(watcher); watcher.watchable = this; } } });
-Object.defineProperty(Watchable.prototype, "removeWatcher", { value: function(watcher){ var index = this.watchers.indexOf(watcher); if(index >= 0) { this.watchers.splice(index, 1); watcher.watchable = undefined; } } });
-Object.defineProperty(Watchable.prototype, "notifyWatchers", { value: function() { (this.watchers || [ ]).forEach(function(watcher) { watcher.notify(this); }, this); } });
+Object.defineProperty(Watchable.prototype, "watch", { value: function watch(func, thisArg, parameters)
+{
+	return new Watcher(this, func, thisArg, parameters || [ ]);
+} });
+Object.defineProperty(Watchable.prototype, "addWatcher", { value: function addWatcher(watcher)
+{
+	if(!this.watchers.includes(watcher))
+	{
+		this.watchers.push(watcher);
+		watcher.watchable = this;
+	}
+} });
+Object.defineProperty(Watchable.prototype, "removeWatcher", { value: function removeWatcher(watcher)
+{
+	var index = this.watchers.indexOf(watcher);
+	if(index >= 0)
+	{
+		this.watchers.splice(index, 1);
+		watcher.watchable = undefined;
+	}
+} });
+Object.defineProperty(Watchable.prototype, "notifyWatchers", { value: function notifyWatchers()
+{
+	(this.watchers || [ ]).forEach(function notifyWatcher(watcher)
+	{
+		watcher.notify(this);
+	}, this);
+} });
 
 function Watchable(parameters)
 {
 	parameters = parameters || { };
 	this.watchers = [ ];
-	Array.from(parameters.watchers || [ ]).forEach(function(watcher)
+	Array.from(parameters.watchers || [ ]).forEach(function addWatcherFromParameters(watcher)
 	{
 		this.addWatcher(watcher);
 	});
@@ -112,29 +189,62 @@ function Watchable(parameters)
 
 WatchableValue.prototype = Object.create(Watchable.prototype);
 WatchableValue.prototype.constructor = WatchableValue;
-Object.defineProperty(WatchableValue.prototype, "callback", { get: function() { return this._callback; }, set: function(callback) { this._callback = callback; this.value = this.value; } });
-Object.defineProperty(WatchableValue.prototype, "value", { get: function() { return this._value; }, set: function(value) { this._value = this.callback(value); this.notifyWatchers(); if(this.parent) this.parent.notifyWatchers(); } });
+Object.defineProperty(WatchableValue, "returnUnmodified", { value: function returnUnmodified(value)
+{
+	return value;
+} });
+Object.defineProperty(WatchableValue.prototype, "callback", { get: function getCallback()
+{
+	return this._callback;
+}, set: function setCallback(callback)
+{
+	this._callback = callback;
+	this.value = this.value;
+} });
+Object.defineProperty(WatchableValue.prototype, "value", { get: function getValue()
+{
+	return this._value;
+}, set: function setValue(value)
+{
+	this._value = this.callback(value);
+	this.notifyWatchers();
+	if(this.parent)
+		this.parent.notifyWatchers();
+} });
 
 function WatchableValue(parameters)
 {
 	parameters = parameters || { };
 	this.parent = parameters.parent instanceof Watchable ? parameters.parent : null;
-	this.callback = parameters.callback instanceof Function ? parameters.callback : function(value) { return value; };
+	this.callback = parameters.callback instanceof Function ? parameters.callback : WatchableValue.returnUnmodified;
 	this.value = parameters.value;
 	Watchable.call(this, parameters);
 }
 
 Updatable.prototype = Object.create(Watchable.prototype);
 Updatable.prototype.constructor = Updatable;
-Object.defineProperty(Updatable.prototype, "requestUpdate", { value: function()
+Object.defineProperty(Updatable.prototype, "requestUpdate", { value: function requestUpdate()
 {
 	if(this.requestUpdates && !Number.isInteger(this.updateRequestIndex))
 		this.updateRequestIndex = this.game.pushUpdateRequest(wrapFunction(this.updateInternal, this));
 } });
-Object.defineProperty(Updatable.prototype, "updateInternal", { value: function(delta) { this.updateRequestIndex = undefined; this.updatePre(delta); this.update(delta); this.updatePost(delta); this.notifyWatchers(); } });
-Object.defineProperty(Updatable.prototype, "updatePre", { value: function(delta) { } });
-Object.defineProperty(Updatable.prototype, "update", { value: function(delta) { } });
-Object.defineProperty(Updatable.prototype, "updatePost", { value: function(delta) { } });
+Object.defineProperty(Updatable.prototype, "updateInternal", { value: function updateInternal(delta)
+{
+	this.updateRequestIndex = undefined;
+	this.updatePre(delta);
+	this.update(delta);
+	this.updatePost(delta);
+	this.notifyWatchers();
+} });
+Object.defineProperty(Updatable.prototype, "updatePre", { value: function updatePre(delta)
+{
+} });
+Object.defineProperty(Updatable.prototype, "update", { value: function update(delta)
+{
+} });
+Object.defineProperty(Updatable.prototype, "updatePost", { value: function updatePost(delta)
+{
+} });
 
 function Updatable(parameters)
 {
@@ -146,8 +256,17 @@ function Updatable(parameters)
 
 Vector.prototype = Object.create(Watchable.prototype);
 Vector.prototype.constructor = Vector;
-Object.defineProperty(Vector, "neverNaN", { value: function(number) { return number || 0 } });
-Object.defineProperty(Vector.prototype, 0, { get: function() { return this.x.value; }, set: function(x) { this.x.value = x; } });
+Object.defineProperty(Vector, "neverNaN", { value: function nevenNaN(number)
+{
+	return number || 0;
+} });
+Object.defineProperty(Vector.prototype, 0, { get: function getX()
+{
+	return this.x.value;
+}, set: function setX(x)
+{
+	this.x.value = x;
+} });
 Object.defineProperty(Vector.prototype, "length", { value: 1 });
 
 function Vector(parameters)
@@ -160,11 +279,11 @@ function Vector(parameters)
 
 Vector2.prototype = Object.create(Vector.prototype);
 Vector2.prototype.constructor = Vector2;
-Object.defineProperty(Vector2.prototype, "copy", { value: function()
+Object.defineProperty(Vector2.prototype, "copy", { value: function copy()
 {
 	return new Vector2([ this[0], this[1] ]);
 } });
-Object.defineProperty(Vector2.prototype, "add", { value: function()
+Object.defineProperty(Vector2.prototype, "add", { value: function add()
 {
 	var args = arguments;
 	if(Array.isArray(args[0]))
@@ -178,7 +297,7 @@ Object.defineProperty(Vector2.prototype, "add", { value: function()
 	this.notifyWatchers();
 	return this;
 } });
-Object.defineProperty(Vector2.prototype, "set", { value: function()
+Object.defineProperty(Vector2.prototype, "set", { value: function set()
 {
 	var args = arguments;
 	if(Array.isArray(args[0]))
@@ -190,7 +309,13 @@ Object.defineProperty(Vector2.prototype, "set", { value: function()
 	this.notifyWatchers();
 	return this;
 } });
-Object.defineProperty(Vector2.prototype, 1, { get: function() { return this.y.value; }, set: function(y) { this.y.value = y; } });
+Object.defineProperty(Vector2.prototype, 1, { get: function getY()
+{
+	return this.y.value;
+}, set: function setY(y)
+{
+	this.y.value = y;
+} });
 Object.defineProperty(Vector2.prototype, "length", { value: 2 });
 
 function Vector2(parameters)
@@ -203,11 +328,11 @@ function Vector2(parameters)
 
 Vector3.prototype = Object.create(Vector2.prototype);
 Vector3.prototype.constructor = Vector3;
-Object.defineProperty(Vector3.prototype, "copy", { value: function()
+Object.defineProperty(Vector3.prototype, "copy", { value: function copy()
 {
 	return new Vector3([ this[0], this[1], this[2] ]);
 } });
-Object.defineProperty(Vector3.prototype, "add", { value: function()
+Object.defineProperty(Vector3.prototype, "add", { value: function add()
 {
 	var args = arguments;
 	if(Array.isArray(args[0]))
@@ -224,7 +349,7 @@ Object.defineProperty(Vector3.prototype, "add", { value: function()
 	this.notifyWatchers();
 	return this;
 } });
-Object.defineProperty(Vector3.prototype, "set", { value: function()
+Object.defineProperty(Vector3.prototype, "set", { value: function set()
 {
 	var args = arguments;
 	if(Array.isArray(args[0]))
@@ -238,20 +363,26 @@ Object.defineProperty(Vector3.prototype, "set", { value: function()
 	this.notifyWatchers();
 	return this;
 } });
-Object.defineProperty(Vector3.prototype, "rotate", { value: function(x, y, z)
+Object.defineProperty(Vector3.prototype, "rotate", { value: function rotate(x, y, z)
 {
 	return this.rotateRad(Math.rad(x), Math.rad(y), Math.rad(z));
 } });
-Object.defineProperty(Vector3.prototype, "rotateRad", { value: function(x, y, z)
+Object.defineProperty(Vector3.prototype, "rotateRad", { value: function rotateRad(x, y, z)
 {
 	var sinX = Math.sin(x), cosX = Math.cos(x), sinY = Math.sin(y), cosY = Math.cos(y), sinZ = Math.sin(z), cosZ = Math.cos(z);
 	return this.rotateMatrix(mat3.invert([ ], [ 1, 0, 0, 0, cosX, -sinX, 0, sinX, cosX ]), [ cosY, 0, sinY, 0, 1, 0, -sinY, 0, cosY ], [ cosZ, -sinZ, 0, sinZ, cosZ, 0, 0, 0, 1 ]);
 } });
-Object.defineProperty(Vector3.prototype, "rotateMatrix", { value: function(x, y, z)
+Object.defineProperty(Vector3.prototype, "rotateMatrix", { value: function rotateMatrix(x, y, z)
 {
 	return new Vector3(vec3.transformMat3([ ], vec3.transformMat3([ ], vec3.transformMat3([ ], this, y), x), z));
 } });
-Object.defineProperty(Vector3.prototype, 2, { get: function() { return this.z.value; }, set: function(z) { this.z.value = z; } });
+Object.defineProperty(Vector3.prototype, 2, { get: function getZ()
+{
+	return this.z.value;
+}, set: function setZ(z)
+{
+	this.z.value = z;
+} });
 Object.defineProperty(Vector3.prototype, "length", { value: 3 });
 
 function Vector3(parameters)
@@ -290,9 +421,27 @@ function RotationVector3(parameters)
 
 Color.prototype = Object.create(Watchable);
 Color.prototype.constructor = Color;
-Object.defineProperty(Color.prototype, "r", { get: function() { return this._r; }, set: function(r) { this._r = Math.max(0, Math.min(255, r || 0)); } });
-Object.defineProperty(Color.prototype, "g", { get: function() { return this._g; }, set: function(g) { this._g = Math.max(0, Math.min(255, g || 0)); } });
-Object.defineProperty(Color.prototype, "b", { get: function() { return this._b; }, set: function(b) { this._b = Math.max(0, Math.min(255, b || 0)); } });
+Object.defineProperty(Color.prototype, "r", { get: function getR()
+{
+	return this._r;
+}, set: function setR(r)
+{
+	this._r = Math.max(0, Math.min(255, r || 0));
+} });
+Object.defineProperty(Color.prototype, "g", { get: function getG()
+{
+	return this._g;
+}, set: function setG(g)
+{
+	this._g = Math.max(0, Math.min(255, g || 0));
+} });
+Object.defineProperty(Color.prototype, "b", { get: function getB()
+{
+	return this._b;
+}, set: function setB(b)
+{
+	this._b = Math.max(0, Math.min(255, b || 0));
+} });
 
 function Color(parameters)
 {
@@ -314,15 +463,33 @@ function Color(parameters)
 
 Camera.prototype = Object.create(Watchable.prototype);
 Camera.prototype.constructor = Camera;
-Object.defineProperty(Camera.prototype, "lookAt", { value: function(vector) 
+Object.defineProperty(Camera.prototype, "lookAt", { value: function lookAt(vector) 
 	{
 		this.rotation[0] = Math.deg(Math.atan2(vector[1] - this.position[1], Math.hypot(vector[0] - this.position[0], this.position[2] - vector[2])));
 		this.rotation[1] = Math.deg(Math.atan2(vector[0] - this.position[0], this.position[2] - vector[2]));
 	}
 });
-Object.defineProperty(Camera.prototype, "fov", { get: function() { return this._fov; }, set: function(fov) { this._fov = fov || 45; this.notifyWatchers(); } });
-Object.defineProperty(Camera.prototype, "near", { get: function() { return this._near; }, set: function(near) { this._near = near || .1; this.notifyWatchers(); } });
-Object.defineProperty(Camera.prototype, "far", { get: function() { return this._far; }, set: function(far) { this._far = far || 100; this.notifyWatchers(); } });
+Object.defineProperty(Camera.prototype, "fov", { get: function getFov()
+{
+	return this._fov;
+}, set: function setFov(fov)
+{
+	this._fov = fov || 45; this.notifyWatchers();
+} });
+Object.defineProperty(Camera.prototype, "near", { get: function getNear()
+{
+	return this._near;
+}, set: function setNear(near)
+{
+	this._near = near || .1; this.notifyWatchers(); } });
+Object.defineProperty(Camera.prototype, "far", { get: function getFar()
+{
+	return this._far;
+}, set: function setFar(far)
+{
+	this._far = far || 100;
+	this.notifyWatchers();
+} });
 
 function Camera(parameters)
 {
@@ -342,16 +509,16 @@ function Physics(parameters)
 
 Geometry.prototype = Object.create(Updatable.prototype);
 Geometry.prototype.constructor = Geometry;
-Object.defineProperty(Geometry.prototype, "buildGeometry", { value: function(renderer)
+Object.defineProperty(Geometry.prototype, "buildGeometry", { value: function buildGeometry(renderer)
 {
 	this.relativeVertices = [ ];
 	this.requestUpdate();
 } });
-Object.defineProperty(Geometry.prototype, "onTextureMapChange", { value: function(renderer)
+Object.defineProperty(Geometry.prototype, "onTextureMapChange", { value: function onTextureMapChange(renderer)
 {
 	this.buildGeometry(renderer);
 } });
-Object.defineProperty(Geometry.prototype, "addRelativeVertex", { value: function(index, position, uv, normal)
+Object.defineProperty(Geometry.prototype, "addRelativeVertex", { value: function addRelativeVertex(index, position, uv, normal)
 {
 	var relativeVertex = this.relativeVertices[index] = [ position, uv, normal ];
 	position.watch(this.requestUpdate, this);
@@ -359,7 +526,7 @@ Object.defineProperty(Geometry.prototype, "addRelativeVertex", { value: function
 	normal.watch(this.requestUpdate, this);
 	this.requestUpdate();
 } });
-Object.defineProperty(Geometry.prototype, "updatePre", { value: function()
+Object.defineProperty(Geometry.prototype, "updatePre", { value: function updatePre()
 {
 	this.updateRequestIndex = undefined;
 	var radiansY = Math.rad(this.rotation[1]), sinY = Math.sin(radiansY), cosY = Math.cos(radiansY);
@@ -400,7 +567,7 @@ function Geometry(parameters, layer, vertices, triangles)
 
 RectangleGeometry.prototype = Object.create(Geometry.prototype);
 RectangleGeometry.prototype.constructor = RectangleGeometry;
-Object.defineProperty(RectangleGeometry.prototype, "buildGeometry", { value: function(renderer)
+Object.defineProperty(RectangleGeometry.prototype, "buildGeometry", { value: function buildGeometry(renderer)
 {
 	callSuper(this, "buildGeometry", renderer);
 	this.requestUpdates = false;
@@ -431,7 +598,7 @@ function RectangleGeometry(parameters, layer)
 
 RectangularPrismGeometry.prototype = Object.create(Geometry.prototype);
 RectangularPrismGeometry.prototype.constructor = RectangularPrismGeometry;
-Object.defineProperty(RectangularPrismGeometry.prototype, "buildGeometry", { value: function(renderer)
+Object.defineProperty(RectangularPrismGeometry.prototype, "buildGeometry", { value: function buildGeometry(renderer)
 {
 	callSuper(this, "buildGeometry", renderer);
 	this.requestUpdates = false;
@@ -513,7 +680,7 @@ function ElipticalPrism(parameters)
 	}
 }
 
-Object.defineProperty(Texture.prototype, "getAbsoluteU", { value: function(relativeU)
+Object.defineProperty(Texture.prototype, "getAbsoluteU", { value: function getAbsoluteU(relativeU)
 {
 	var uvs = this.textureMap[this.index];
 	if(!uvs)
@@ -521,7 +688,7 @@ Object.defineProperty(Texture.prototype, "getAbsoluteU", { value: function(relat
 	var uStart = uvs[0];
 	return uStart + relativeU * uvs[2];
 } });
-Object.defineProperty(Texture.prototype, "getAbsoluteV", { value: function(relativeV)
+Object.defineProperty(Texture.prototype, "getAbsoluteV", { value: function getAbsoluteV(relativeV)
 {
 	var uvs = this.textureMap[this.index];
 	if(!uvs)
@@ -537,15 +704,15 @@ function Texture(index, textureMap, image)
 	this.image = image;
 }
 
-Object.defineProperty(TextureMap, "textureComparator", { value: function(a, b)
+Object.defineProperty(TextureMap, "textureComparator", { value: function textureComparator(a, b)
 {
 	return b.image.height - a.image.height || b.image.width - a.image.width || a.index - b.index;
 } });
-Object.defineProperty(TextureMap, "boxComparator", { value: function(a, b)
+Object.defineProperty(TextureMap, "boxComparator", { value: function boxComparator(a, b)
 {
 	return a[0] - b[0] || a[1] - b[1];
 } });
-Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(length, textures)
+Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function calculateTextureUVs(length, textures)
 {
 	var availableBoxesMap = [ [ 0 ] ];
 	availableBoxesMap[-1] = [ 0 ];
@@ -562,11 +729,11 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 		var height = texture.image.height;
 		if(width != splitBoxesWidth && height != splitBoxesHeight)
 		{
-			availableBoxes.forEach(function(availableBox)
+			availableBoxes.forEach(function shiftAvailableBoxIndexInMap(availableBox)
 			{
 				availableBoxesMap[availableBox[0]][availableBox[1]] += splitBoxes.length;
 			});
-			splitBoxes.forEach(function(splitBox, index)
+			splitBoxes.forEach(function addSplitBoxIndexToMap(splitBox, index)
 			{
 				if(!availableBoxesMap[-1].includes(splitBox[0]))
 					availableBoxesMap[-1].push(splitBox[0]);
@@ -592,7 +759,7 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 				{
 					var quadrants = [ [ [ availableBox[0], availableBox[1], width, height ] ], [ [ availableBox[0], availableBox[1] - height, width, height ] ], [ [ availableBox[0] - width, availableBox[1], width, height ] ], [ [ availableBox[0] - width, availableBox[1] - height, width, height ] ] ];
 					var boxesInArea = [ [ ], [ ], [ ], [ ] ];
-					quadrants.forEach(function(quadrant, quadrantIndex)
+					quadrants.forEach(function reduceQuadrantBounds(quadrant, quadrantIndex)
 					{
 						var quadrantBox = quadrant[0];
 						if(quadrantBox[0] < 0 || quadrantBox[1] < 0)
@@ -607,7 +774,7 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 								if(v < quadrantBox[1])
 									continue;
 								var affectedBox = availableBoxes[vArray[v]];
-								quadrant.forEach(function(remainingBox, index)
+								quadrant.forEach(function reduceQuadrantBoundsByIntersectingBoxes(remainingBox, index)
 								{
 									if(remainingBox[0] >= affectedBox[0] && remainingBox[1] >= affectedBox[1] && remainingBox[0] + remainingBox[2] <= affectedBox[0] + affectedBox[2] && remainingBox[1] + remainingBox[3] <= affectedBox[1] + affectedBox[3])
 										delete quadrant[index];
@@ -653,13 +820,10 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 								boxesInArea[quadrantIndex].push(vArray[v]);
 							}
 						}
-						if(!quadrant.find(function(remainingBox)
-						{
-							return remainingBox;
-						}))
+						if(!quadrant.find(WatchableValue.returnUnmodified))
 						{
 							var splitBoxIndex = splitBoxes.push(quadrantBox) - 1;
-							boxesInArea[quadrantIndex].forEach(function(boxInArea)
+							boxesInArea[quadrantIndex].forEach(function addIndexToOverlappingBoxes(boxInArea)
 							{
 								if(overlappingBoxes[boxInArea])
 									overlappingBoxes[boxInArea].push(splitBoxIndex);
@@ -670,7 +834,7 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 					});
 				}
 			}
-			overlappingBoxes.forEach(function(splitBoxIndices, overlappingBoxIndex)
+			overlappingBoxes.forEach(function divideOverlappingBoxBySplitBoxes(splitBoxIndices, overlappingBoxIndex)
 			{
 				var overlappingBox = availableBoxes[overlappingBoxIndex];
 				var vArray = availableBoxesMap[overlappingBox[0]];
@@ -693,7 +857,7 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 				delete availableBoxes[overlappingBoxIndex];
 				var uDivisionPoints = [ overlappingBox[0], overlappingBox[0] + overlappingBox[2] ];
 				var vDivisionPoints = [ overlappingBox[1], overlappingBox[1] + overlappingBox[3] ];
-				splitBoxIndices.forEach(function(splitBoxIndex)
+				splitBoxIndices.forEach(function addDivisionPoints(splitBoxIndex)
 				{
 					var splitBox = splitBoxes[splitBoxIndex];
 					if(!uDivisionPoints.includes(splitBox[0]))
@@ -710,7 +874,7 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 				for(var j = 0, u = uDivisionPoints[0]; j + 1 < uDivisionPoints.length; u = uDivisionPoints[++j])
 					for(var k = 0, v = vDivisionPoints[0]; k + 1 < vDivisionPoints.length; v = vDivisionPoints[++k])
 					{
-						if(splitBoxIndices.every(function(splitBoxIndex)
+						if(splitBoxIndices.every(function isUVInSplitBox(splitBoxIndex)
 						{
 							var splitBox = splitBoxes[splitBoxIndex];
 							return u < splitBox[0] || u >= splitBox[0] + splitBox[2] || v < splitBox[1] || v >= splitBox[1] + splitBox[3];
@@ -742,35 +906,35 @@ Object.defineProperty(TextureMap, "calculateTextureUVs", { value: function(lengt
 	}
 	return textureUVs;
 } });
-Object.defineProperty(TextureMap.prototype, "loadTextures", { value: function(imageLocations)
+Object.defineProperty(TextureMap.prototype, "loadTextures", { value: function loadTextures(imageLocations)
 {
 	var ret = [ ];
 	var textures = Array.from(this.textures);
 	var loadedImages = textures.length;
-	var restitchIfAllLoaded = wrapFunction(function()
+	var restitchIfAllLoaded = wrapFunction(function restitchIfAllLoaded()
 	{
 		loadedImages++;
 		if(loadedImages == textures.length)
 			this.restitchTextures(textures);
 	}, this);
-	imageLocations.forEach(function(imageLocation)
+	imageLocations.forEach(function requestTexture(imageLocation)
 	{
 		var image = new Image();
 		var index = textures.length;
 		var texture = new Texture(index, this, image);
 		textures.push(texture);
 		ret.push(texture);
-		var removeListeners = function(image)
+		var removeListeners = function removeTextureisteners(image)
 		{
 			image.removeEventListener("load", onload);
 			image.removeEventListener("error", onerror);
 		}
-		var onload = function()
+		var onload = function onTextureLoad()
 		{
 			removeListeners(this);
 			restitchIfAllLoaded();
 		}
-		var onerror = function()
+		var onerror = function onTextureError()
 		{
 			texture.index = 0;
 			onload();
@@ -780,35 +944,38 @@ Object.defineProperty(TextureMap.prototype, "loadTextures", { value: function(im
 		image.src = imageLocation;
 	}, this);
 	if(imageLocations.length == 0)
-		setTimeout(wrapFunction(function()
+		setTimeout(wrapFunction(function delayedRestitchTextures()
 		{
 			this.restitchTextures(textures);
 		}, this), 0);
 	return ret;
 } });
-Object.defineProperty(TextureMap.prototype, "restitchTextures", { value: function(textures)
+Object.defineProperty(TextureMap.prototype, "restitchTextures", { value: function restitchTextures(textures)
 {
 	textures.sort(TextureMap.textureComparator);
 	var stitchedPixels = 0;
-	textures.forEach(function(texture)
+	textures.forEach(function addAreaToStitchedPixels(texture)
 	{
 		stitchedPixels += texture.image.width * texture.image.height;
 	});
 	var textureUVs;
-	var i = 0;
+	var i = Math.ceil(Math.log2(stitchedPixels));
 	for(; 2 ** i < Infinity && !textureUVs;)
 		textureUVs = TextureMap.calculateTextureUVs(2 ** ++i, textures);
 	var stitchCanvas = document.createElement("canvas");
 	stitchCanvas.width = stitchCanvas.height = 2 ** i;
 	var stitchContext = stitchCanvas.getContext("2d");
-	textureUVs.forEach(function(textureUV, index)
+	textureUVs.forEach(function addTextureToStitched(textureUV, index)
 	{
 		var texture = textures[index];
 		stitchContext.drawImage(texture.image, textureUV[0], textureUV[1], textureUV[2], textureUV[3]);
-		this[texture.index] = textureUV.map(function(element) { return element / 2 ** i; });
+		this[texture.index] = textureUV.map(function divideUVByStitchedLength(element)
+		{
+			return element / 2 ** i;
+		});
 	}, this);
 	this.stitched.src = stitchCanvas.toDataURL();
-	this.stitched.addEventListener("load", this.onStichedLoad = wrapFunction(function()
+	this.stitched.addEventListener("load", this.onStichedLoad = wrapFunction(function onStitchedTextureMapLoad()
 	{
 		this.stitched.removeEventListener("load", this.onStitchedLoad);
 		this.onStitchedLoad = undefined;
@@ -832,7 +999,7 @@ function TextureMap(parameters)
 			missingImageData.data.set((x / 2 == Math.floor(x / 2)) != (y / 2 == Math.floor(y / 2)) ? [ 132, 0, 92, 255 ] : [ 0, 0, 0, 255 ], (x + y * missingImageData.width) * 4);
 	missingContext.putImageData(missingImageData, 0, 0);
 	this.stitched.src = missingImage.src = missingCanvas.toDataURL();
-	this.stitched.addEventListener("load", this.onStichedLoad = wrapFunction(function()
+	this.stitched.addEventListener("load", this.onStichedLoad = wrapFunction(function onStitchedTextureMapLoad()
 	{
 		this.stitched.removeEventListener("load", this.onStitchedLoad);
 		this.onStitchedLoad = undefined;
@@ -841,14 +1008,14 @@ function TextureMap(parameters)
 	this[0] = [ 0, 0, 1, 1 ];
 }
 
-Object.defineProperty(VertexBufferAllocation.prototype, "disallocate", { value: function()
+Object.defineProperty(VertexBufferAllocation.prototype, "disallocate", { value: function disallocate()
 {
 	this.buffer.allocations.splice(this.index, 1);
 	var disallocations = [ ];
 	var i = 0;
 	var range = null;
 	var allocation = this;
-	this.buffer.disallocations.forEach(function(disallocation)
+	this.buffer.disallocations.forEach(function expandExistingDisallocations(disallocation)
 	{
 		if(range)
 		{
@@ -885,7 +1052,7 @@ Object.defineProperty(VertexBufferAllocation.prototype, "disallocate", { value: 
 	this.buffer.disallocations = disallocations;
 	this.buffer.triangles = new Uint16Array(Array.from(this.buffer.triangles).splice(this.triangleRange[0], this.triangleRange[1] - this.triangleRange[0]));
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "setVertexX", { value: function(vertex, x)
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexX", { value: function setVertexX(vertex, x)
 {
 	var index = this.getVertexIndex(vertex);
 	if(index)
@@ -895,7 +1062,7 @@ Object.defineProperty(VertexBufferAllocation.prototype, "setVertexX", { value: f
 	}
 	return index;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "setVertexY", { value: function(vertex, y)
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexY", { value: function setVertexY(vertex, y)
 {
 	var index = this.getVertexIndex(vertex);
 	if(index)
@@ -905,7 +1072,7 @@ Object.defineProperty(VertexBufferAllocation.prototype, "setVertexY", { value: f
 	}
 	return index;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "setVertexZ", { value: function(vertex, z)
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexZ", { value: function setVertexZ(vertex, z)
 {
 	var index = this.getVertexIndex(vertex);
 	if(index)
@@ -915,7 +1082,7 @@ Object.defineProperty(VertexBufferAllocation.prototype, "setVertexZ", { value: f
 	}
 	return index;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "setVertexXYZ", { value: function(vertex, x, y, z)
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexXYZ", { value: function setVertexXYZ(vertex, x, y, z)
 {
 	var index = this.getVertexIndex(vertex);
 	if(index)
@@ -928,7 +1095,7 @@ Object.defineProperty(VertexBufferAllocation.prototype, "setVertexXYZ", { value:
 	} 
 	return index;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "setVertexU", { value: function(vertex, u)
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexU", { value: function setVertexU(vertex, u)
 {
 	var index = this.getVertexIndex(vertex);
 	if(index)
@@ -938,7 +1105,7 @@ Object.defineProperty(VertexBufferAllocation.prototype, "setVertexU", { value: f
 	}
 	return index;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "setVertexV", { value: function(vertex, v)
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexV", { value: function setVertexV(vertex, v)
 {
 	var index = this.getVertexIndex(vertex);
 	if(index)
@@ -948,7 +1115,7 @@ Object.defineProperty(VertexBufferAllocation.prototype, "setVertexV", { value: f
 	}
 	return index;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "setVertexUV", { value: function(vertex, u, v)
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexUV", { value: function setVertexUV(vertex, u, v)
 {
 	var index = this.getVertexIndex(vertex);
 	if(index)
@@ -960,7 +1127,7 @@ Object.defineProperty(VertexBufferAllocation.prototype, "setVertexUV", { value: 
 	}
 	return index;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "setVertexNormal", { value: function(vertex, normalX, normalY, normalZ)
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertexNormal", { value: function setVertexNormal(vertex, normalX, normalY, normalZ)
 {
 	var index = this.getVertexIndex(vertex);
 	if(index)
@@ -973,7 +1140,7 @@ Object.defineProperty(VertexBufferAllocation.prototype, "setVertexNormal", { val
 	}
 	return index;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "setVertex", { value: function(vertex, x, y, z, u, v, normalX, normalY, normalZ)
+Object.defineProperty(VertexBufferAllocation.prototype, "setVertex", { value: function setVertex(vertex, x, y, z, u, v, normalX, normalY, normalZ)
 {
 	var index = this.getVertexIndex(vertex);
 	if(index)
@@ -985,24 +1152,24 @@ Object.defineProperty(VertexBufferAllocation.prototype, "setVertex", { value: fu
 	}
 	return index;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "getVertexIndex", { value: function(vertex)
+Object.defineProperty(VertexBufferAllocation.prototype, "getVertexIndex", { value: function getVertexIndex(vertex)
 {
 	var vertices = 0;
-	var range = this.vertexRanges.find(function(range)
+	var range = this.vertexRanges.find(function isVertexWithinRange(range)
 	{
 		vertices += range[1] - range[0];
 		return vertices >= vertex;
 	}) || [ 0, vertices - vertex ];
 	return range[1] - vertices + vertex;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "setTriangleCorner", { value: function(triangle, corner, vertex)
+Object.defineProperty(VertexBufferAllocation.prototype, "setTriangleCorner", { value: function setTriangleCorner(triangle, corner, vertex)
 {
 	var index = this.getTriangleIndex(triangle);
 	if(index)
 		this.buffer.triangles[index + corner] = vertex;
 	return index;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "setTriangle", { value: function(triangle, cornerVertex0, cornerVertex1, cornerVertex2)
+Object.defineProperty(VertexBufferAllocation.prototype, "setTriangle", { value: function setTriangle(triangle, cornerVertex0, cornerVertex1, cornerVertex2)
 {
 	var index = this.getTriangleIndex(triangle);
 	if(index)
@@ -1013,7 +1180,7 @@ Object.defineProperty(VertexBufferAllocation.prototype, "setTriangle", { value: 
 	}
 	return index;
 } });
-Object.defineProperty(VertexBufferAllocation.prototype, "getTriangleIndex", { value: function(triangle)
+Object.defineProperty(VertexBufferAllocation.prototype, "getTriangleIndex", { value: function getTriangleIndex(triangle)
 {
 	return (this.triangleRange[1] - this.triangleRange[0] > triangle ? this.triangleRange[0] + triangle : 0) * 3;
 } });
@@ -1026,13 +1193,13 @@ function VertexBufferAllocation(buffer, index, vertexRanges, triangleRange)
 	this.triangleRange = triangleRange;
 }
 
-Object.defineProperty(VertexBuffer.prototype, "allocate", { value: function(vertexCount, triangleCount)
+Object.defineProperty(VertexBuffer.prototype, "allocate", { value: function allocate(vertexCount, triangleCount)
 {
 	triangleCount = triangleCount || vertexCount;
 	var vertexRanges = [ ];
 	var allocated = 0;
 	var disallocations = [ ];
-	this.disallocations.forEach(function(disallocation)
+	this.disallocations.forEach(function addRangeToAllocate(disallocation)
 	{
 		var to = Math.min(disallocation[0] + Math.max(vertexCount - allocated, 0), disallocation[1]);
 		if(allocated < vertexCount)
@@ -1048,7 +1215,7 @@ Object.defineProperty(VertexBuffer.prototype, "allocate", { value: function(vert
 	var uvs = this.uvs instanceof Float32Array ? Array.from(this.uvs) : this.uvs;
 	var normalBuffer = this.normals.glBuffer;
 	var normals = this.normals instanceof Float32Array ? Array.from(this.normals) : this.normals;
-	vertexRanges.forEach(function(range)
+	vertexRanges.forEach(function addVertexToRange(range)
 	{
 		for(var i = range[0]; i < range[1]; i++)
 		{
@@ -1079,7 +1246,7 @@ function VertexBuffer()
 	this.triangles = new Uint16Array([ 0, 0, 0 ]);
 }
 
-Object.defineProperty(Timestamp, "merge", { value: function()
+Object.defineProperty(Timestamp, "merge", { value: function mergeTimestamps()
 {
 	var params = { };
 	var fromTime = NaN;
@@ -1096,7 +1263,7 @@ Object.defineProperty(Timestamp, "merge", { value: function()
 	}
 	return new Timestamp(JSON.parse(JSON.stringify(params)), fromTime, toTime - fromTime);	
 } });
-Object.defineProperty(Timestamp, "splitAll", { value: function()
+Object.defineProperty(Timestamp, "splitAll", { value: function splitAllTimestamps()
 {
 	var timestamps = [ ];
 	var splitPoints = [ ];
@@ -1113,7 +1280,7 @@ Object.defineProperty(Timestamp, "splitAll", { value: function()
 				splitPoints.push(toTime);
 		}
 	}
-	splitPoints.sort(function(a, b) { return a - b; });
+	splitPoints.sort();
 	var splitTimestamps = [ ];
 	for(var i = 0; i < timestamps.length; i++)
 	{
@@ -1134,18 +1301,22 @@ Object.defineProperty(Timestamp, "splitAll", { value: function()
 		timestamps.push(Timestamp.merge.apply(this, splitTimestamps[i]));
 	return timestamps;
 } });
-Object.defineProperty(Timestamp.prototype, "copy", { value: function()
+Object.defineProperty(Timestamp.prototype, "isInTimestamp", { value: function isInTimestamp(time)
+{
+	return this.fromTime < time && this.fromTime + this.time > time;
+} });
+Object.defineProperty(Timestamp.prototype, "copy", { value: function copy()
 {
 	return new Timestamp(JSON.parse(JSON.stringify(this.params)), this.fromTime, this.time);
 } });
-Object.defineProperty(Timestamp.prototype, "split", { value: function()
+Object.defineProperty(Timestamp.prototype, "split", { value: function split()
 {
 	var times = Array.from(arguments);
 	var timestamp = this;
 	var json = JSON.stringify(this.params);
-	times = times.filter(function(time) { return timestamp.fromTime < time && timestamp.fromTime + timestamp.time > time; });
+	times = times.filter(wrapFunction(this.isInTimestamp, this));
 	times.push(this.fromTime, this.fromTime + this.time);
-	times.sort(function(a, b) { return a - b; });
+	times.sort();
 	var timestamps = [ ];
 	for(var i = 0; i < times.length - 1; i++)
 	{
@@ -1161,29 +1332,37 @@ function Timestamp(params, fromTime, time)
 	this.fromTime = fromTime || 0;
 	this.time = time || 0;
 }
-Object.defineProperty(Control.prototype, "addControllers", { value: function() { Array.from(parameters).forEach(function(controller) { if(this.controllers.indexOf(controller) < 0) this.controllers.push(controller); }, this ); return this; } });
-Object.defineProperty(Control.prototype, "reset", { value: function()
+Object.defineProperty(Control.prototype, "addControllers", { value: function addControllers()
 {
-	this.keyboardControllers.forEach(function(controller)
+	Array.forEach(parameters, function addControllerIfAbsent(controller)
+	{
+		if(!this.controllers.includes(controller))
+			this.controllers.push(controller);
+	}, this);
+	return this;
+} });
+Object.defineProperty(Control.prototype, "reset", { value: function reset()
+{
+	this.keyboardControllers.forEach(function deactivateKeyboardController(controller)
 	{ 
 		var controller = this.controls.controllers["keyboard." + controller];
 		if(controller)
 			controller.splice(controller.indexOf(this), 1);
 	}, this);
-	this.gamepadControllers.forEach(function(controller)
+	this.gamepadControllers.forEach(function deactivateGamepadController(controller)
 	{
 		var controller = this.controls.controllers["gamepad." + controller];
 		if(controller)
 			controller.splice(controller.indexOf(this), 1);
 	}, this);
-	this.defaultKeyboardControllers.forEach(function(controller)
+	this.defaultKeyboardControllers.forEach(function activateKeyboardController(controller)
 	{
 		var controllerName = "keyboard." + controller;
 		if(!this.controls.controllers[controllerName])
 			this.controls.controllers[controllerName] = [ ];
 		this.controls.controllers[controllerName].push(this);
 	}, this);
-	this.defaultGamepadControllers.forEach(function(controller)
+	this.defaultGamepadControllers.forEach(function activateGamepadController(controller)
 	{
 		var controllerName = "gamepad." + controller;
 		if(!this.controls.controllers[controllerName])
@@ -1200,8 +1379,8 @@ function Control(controls, name, func, type, keyboardControllerFilter, gamepadCo
 	this.name = name;
 	this.func = func;
 	this.type = type;
-	this.keyboardControllerFilter = keyboardControllerFilter || function() { return false; };
-	this.gamepadControllerFilter = gamepadControllerFilter || function() { return false; };
+	this.keyboardControllerFilter = keyboardControllerFilter || alwaysFalse;
+	this.gamepadControllerFilter = gamepadControllerFilter || alwaysFalse;
 	this.defaultKeyboardControllers = Array.from(defaultKeyboardControllers);
 	this.defaultGamepadControllers = Array.from(defaultGamepadControllers);
 	this.keyboardControllers = [ ];
@@ -1211,19 +1390,22 @@ function Control(controls, name, func, type, keyboardControllerFilter, gamepadCo
 
 Mouse.prototype = Object.create(ElementFocusEventListener.prototype);
 Mouse.prototype.constructor = Mouse;
-Object.defineProperty(Mouse, "buttonFilter", { value: function(controller)
+Object.defineProperty(Mouse, "buttonFilter", { value: function isMouseButton(controller)
 {
 	return controller.startsWith("button");
 } });
-Object.defineProperty(Mouse, "wheelFilter", { value: function(controller)
+Object.defineProperty(Mouse, "wheelFilter", { value: function isMouseWheel(controller)
 {
 	return controller == "wheel";
 } });
-Object.defineProperty(Mouse.prototype, "onMouseMove", { value: function(movementX, movementY)
+Object.defineProperty(Mouse.prototype, "onMouseMove", { value: function onMouseMove(movementX, movementY)
 {
 	this.mouseInfo.push(new Timestamp({ mouse: { movementX: movementX, movementY: movementY } }, Date.now(), 0));
 } });
-Object.defineProperty(Mouse.prototype, "reset", { value: function() { this.mouseInfo = [ ]; } });
+Object.defineProperty(Mouse.prototype, "reset", { value: function reset()
+{
+	this.mouseInfo = [ ];
+} });
 
 function Mouse(parameters)
 {
@@ -1231,16 +1413,16 @@ function Mouse(parameters)
 	ElementFocusEventListener.call(this, parameters);
 	if(parameters.controls instanceof Controls)
 		this.controls = parameters.controls;
-	this.addEventListener("mousemove", function(event) { event = event || window.event; this.onMouseMove(event.movementX, event.movementY); });
+	this.addEventListener("mousemove", wrapEventListener(this.onMouseMove, this, "movementX", "movementY"));
 }
 
 Keyboard.prototype = Object.create(ElementFocusEventListener.prototype);
 Keyboard.prototype.constructor = Keyboard;
-Object.defineProperty(Keyboard, "keyFilter", { value: function(controller)
+Object.defineProperty(Keyboard, "keyFilter", { value: function isKeyboardKey(controller)
 {
 	return true;
 } });
-Object.defineProperty(Keyboard, "getKey", { value: function(key)
+Object.defineProperty(Keyboard, "getKey", { value: function keyToString(key)
 {
 	if(key == " ")
 		return "spacebar";
@@ -1248,7 +1430,11 @@ Object.defineProperty(Keyboard, "getKey", { value: function(key)
 		return key.substring(5).toLowerCase();
 	return key.toLowerCase();
 } });
-Object.defineProperty(Keyboard.prototype, "onKeyDown", { value: function(key)
+Object.defineProperty(Keyboard.prototype, "processKeyDown", { value: function processKeyDown(key)
+{
+	this.onKeyDown(Keyboard.getKey(key));
+} });
+Object.defineProperty(Keyboard.prototype, "onKeyDown", { value: function onKeyDown(key)
 {
 	if(this.focused)
 	{
@@ -1261,7 +1447,7 @@ Object.defineProperty(Keyboard.prototype, "onKeyDown", { value: function(key)
 			params = { };
 			keyArray.push(this.timestamps.push(new Timestamp(params, Date.now(), Infinity)) - 1);
 		}
-		this.controls.getControls("keyboard." + key).forEach(function(control)
+		this.controls.getControls("keyboard." + key).forEach(function processControl(control)
 		{
 			switch(control.type)
 			{
@@ -1280,12 +1466,16 @@ Object.defineProperty(Keyboard.prototype, "onKeyDown", { value: function(key)
 		}, this);
 	}
 } });
-Object.defineProperty(Keyboard.prototype, "onKeyUp", { value: function(key)
+Object.defineProperty(Keyboard.prototype, "processKeyUp", { value: function processKeyUp(key)
+{
+	this.onKeyUp(Keyboard.getKey(key));
+} });
+Object.defineProperty(Keyboard.prototype, "onKeyUp", { value: function onKeyUp(key)
 {
 	if(this.focused)
 	{
 		var now = Date.now();
-		this.keyArrays[key].forEach(function(index)
+		this.keyArrays[key].forEach(function setKeyTimestampToDefinite(index)
 		{
 			var timestamp = this.timestamps[index];
 			if(timestamp && timestamp.time == Infinity)
@@ -1294,7 +1484,7 @@ Object.defineProperty(Keyboard.prototype, "onKeyUp", { value: function(key)
 		delete this.keyArrays[key];
 	}
 } });
-Object.defineProperty(Keyboard.prototype, "reset", { value: function()
+Object.defineProperty(Keyboard.prototype, "reset", { value: function reset()
 {
 	this.timestamps = [ ];
 	this.keyArrays = { };
@@ -1306,19 +1496,19 @@ function Keyboard(parameters)
 	ElementFocusEventListener.call(this, parameters);
 	if(parameters.controls instanceof Controls)
 		this.controls = parameters.controls;
-	this.addEventListener("keydown", function(event) { this.onKeyDown(Keyboard.getKey((event || window.event).key)); });
-	this.addEventListener("keyup", function(event) { this.onKeyUp(Keyboard.getKey((event || window.event).key)); });
+	this.addEventListener("keydown", wrapEventListener(this.processKeyDown, this, "key"));
+	this.addEventListener("keyup", wrapEventListener(this.processKeyUp, this, "key"));
 }
 
-Object.defineProperty(Gamepad, "buttonFilter", { value: function(controller)
+Object.defineProperty(Gamepad, "buttonFilter", { value: function isGamepadButton(controller)
 {
 	return controller.startsWith("button");
 } });
-Object.defineProperty(Gamepad, "analogFilter", { value: function(controller)
+Object.defineProperty(Gamepad, "analogFilter", { value: function isGamepadAnalogStick(controller)
 {
 	return controller.startsWith("analog");
 } });
-Object.defineProperty(Gamepad.prototype, "update", { value: function(last, now)
+Object.defineProperty(Gamepad.prototype, "update", { value: function update(last, now)
 {
 	var gamepads = navigator.getGamepads();
 	for(var i = 0; i < gamepads.length; i++)
@@ -1340,7 +1530,7 @@ Object.defineProperty(Gamepad.prototype, "update", { value: function(last, now)
 				if(analogX != 0 || analogY != 0)
 				{
 					var analogInfo = [ Math.deg(Math.atan2(analogX, analogY)), Math.min(Math.hypot(analogX, analogY), 1) ];
-					this.controls.getControls("gamepad." + controller).forEach(function(control)
+					this.controls.getControls("gamepad." + controller).forEach(function setControlRotaryParameter(control)
 					{
 						params.setPropertyAt("gamepad." + control.name, analogInfo);
 					});
@@ -1352,7 +1542,7 @@ Object.defineProperty(Gamepad.prototype, "update", { value: function(last, now)
 				var controller = "button" + j;
 				if(buttonPressed)
 				{
-					this.controls.getControls("gamepad." + controller).forEach(function(control)
+					this.controls.getControls("gamepad." + controller).forEach(function setControlButtonParameter(control)
 					{
 						params.setPropertyAt("gamepad." + control.name, true);
 					}, this);
@@ -1371,28 +1561,28 @@ function Gamepad(parameters)
 		this.controls = parameters.controls;
 }
 
-Object.defineProperty(Controls.prototype, "addControl", { value: function(name, func, type, keyboardControllerFilter, gamepadControllerFilter, defaultKeyboardControllers, defaultGamepadControllers)
+Object.defineProperty(Controls.prototype, "addControl", { value: function addControl(name, func, type, keyboardControllerFilter, gamepadControllerFilter, defaultKeyboardControllers, defaultGamepadControllers)
 {
 	var control = this.controls[name] = new Control(this, name, func, type, keyboardControllerFilter, gamepadControllerFilter, defaultKeyboardControllers, defaultGamepadControllers);
 	if(type == 2)
 		this.addControlsLoopFunc(func);
 } });
-Object.defineProperty(Controls.prototype, "getControl", { value: function(name)
+Object.defineProperty(Controls.prototype, "getControl", { value: function getControl(name)
 {
 	return this.controls[name] || this.nullKeyBinding;
 } });
-Object.defineProperty(Controls.prototype, "getControls", { value: function(controller)
+Object.defineProperty(Controls.prototype, "getControls", { value: function getControls(controller)
 {
 	return this.controllers[controller] || [ ];
 } });
-Object.defineProperty(Controls.prototype, "addControlsLoopFunc", { value: function(func)
+Object.defineProperty(Controls.prototype, "addControlsLoopFunc", { value: function addControlsLoopFunc(func)
 {
 	var index = this.controlsLoopFuncs.indexOf(func);
 	if(index < 0)
 		index = this.controlsLoopFuncs.push(func) - 1;
 	this.controlsLoopFuncs[0][index - 1] = (this.controlsLoopFuncs[0][index - 1] || 0) + 1;
 } });
-Object.defineProperty(Controls.prototype, "removeControlsLoopFunc", { value: function(func)
+Object.defineProperty(Controls.prototype, "removeControlsLoopFunc", { value: function removeControlsLoopFunc(func)
 {
 	var index = this.controlsLoopFuncs.indexOf(func);
 	if(index >= 0)
@@ -1404,44 +1594,47 @@ Object.defineProperty(Controls.prototype, "removeControlsLoopFunc", { value: fun
 		}
 	}
 } });
-Object.defineProperty(Controls.prototype, "startControlsLoop", { value: function()
+Object.defineProperty(Controls.prototype, "startControlsLoop", { value: function startControlsLoop()
 {
 	this.controlsLoopTimeout = setTimeout(this.controlsLoop, 0, this);
 } });
-Object.defineProperty(Controls.prototype, "endControlsLoop", { value: function()
+Object.defineProperty(Controls.prototype, "endControlsLoop", { value: function endControlsLoop()
 {
 	clearTimeout(this.controlsLoopTimeout);
 } });
-Object.defineProperty(Controls.prototype, "controlsLoop", { value: function(controls)
+Object.defineProperty(Controls.prototype, "controlsLoop", { value: function controlsLoop(controls)
 {
 	var now = Date.now();
 	controls.bindingFuncLoopTimeout = setTimeout(controls.controlsLoop, 0, controls);
 	controls.gamepad.update(controls.lastControlsLoop || now, now);
-	var timestamps = Timestamp.splitAll.apply(null, function()
+	var timestamps = Timestamp.splitAll.apply(null, function processControlTimestamps()
 	{	
 		var timestamps = [ ];
-		Array.forEach(arguments, function(ts) { ts.forEach(function(timestamp, index, array)
+		Array.forEach(arguments, function addControlTimestamps(ts)
 		{
-			if(timestamp.time == Infinity)
+			ts.forEach(function addControlTimestamp(timestamp, index, array)
 			{
-				var newTimestamp = timestamp.copy();
-				newTimestamp.time = now - newTimestamp.fromTime;
-				timestamps.push(newTimestamp);
-				timestamp.fromTime = now;
-			}
-			else
-			{
-				timestamps.push(timestamp);
-				delete array[index];
-			}
-		}); });
+				if(timestamp.time == Infinity)
+				{
+					var newTimestamp = timestamp.copy();
+					newTimestamp.time = now - newTimestamp.fromTime;
+					timestamps.push(newTimestamp);
+					timestamp.fromTime = now;
+				}
+				else
+				{
+					timestamps.push(timestamp);
+					delete array[index];
+				}
+			});
+		});
 		return timestamps;
 	}(controls.keyboard.timestamps, controls.gamepad.timestamps));
 	for(var i = 1; i < controls.controlsLoopFuncs.length; i++)
 		controls.controlsLoopFuncs[i](timestamps, controls.lastControlsLoop, now);
 	controls.lastControlsLoop = now;
 } });
-Object.defineProperty(Controls.prototype, "unload", { value: function()
+Object.defineProperty(Controls.prototype, "unload", { value: function unload()
 {
 	this.endControlsLoop();
 } });
@@ -1451,7 +1644,7 @@ function Controls(parameters)
 	parameters = parameters || { };
 	this.game = parameters.game;
 	this.element = parameters.element instanceof Element ? parameters.element : document.body;
-	this.nullControl = new Control(this, "null", function() { }, 0, undefined, undefined, [ ], [ ]);
+	this.nullControl = new Control(this, "null", emptyFunction, 0, undefined, undefined, [ ], [ ]);
 	this.controls = { };
 	this.controllers = { };
 	this.controlsLoopFuncs = [ [ ] ];
@@ -1471,7 +1664,7 @@ function Controls(parameters)
 	this.gamepad = parameters.gamepad instanceof Gamepad ? parameters.gamepad : new Gamepad(parameters.gamepad);
 }
 
-Object.defineProperty(Renderer.prototype, "animate", { value: function(now)
+Object.defineProperty(Renderer.prototype, "animate", { value: function animate(now)
 {
 	now /= 1000;
 	if(this.then)
@@ -1482,11 +1675,11 @@ Object.defineProperty(Renderer.prototype, "animate", { value: function(now)
 	this.then = now;
 	requestAnimationFrame(wrapFunction(this.animate, this));
 } });
-Object.defineProperty(Renderer.prototype, "render", { value: function(delta)
+Object.defineProperty(Renderer.prototype, "render", { value: function render(delta)
 {
 	var updateRequests = this.updateRequests;
 	this.updateRequests = [ ];
-	updateRequests.forEach(function(request)
+	updateRequests.forEach(function callUpdateRequest(request)
 	{
 		if(request())
 		{
@@ -1497,16 +1690,16 @@ Object.defineProperty(Renderer.prototype, "render", { value: function(delta)
 	}, this);
 	return true;
 } });
-Object.defineProperty(Renderer.prototype, "resize", { value: function()
+Object.defineProperty(Renderer.prototype, "resize", { value: function resize()
 {
 	this.game.level.projection.aspect = this.game.gui.projection.aspect = window.innerWidth / window.innerHeight;
 } });
-Object.defineProperty(Renderer.prototype, "bindTextureMap", { value: function()
+Object.defineProperty(Renderer.prototype, "bindTextureMap", { value: function bindTextureMap()
 {
 } });
-Object.defineProperty(Renderer.prototype, "unload", { value: function()
+Object.defineProperty(Renderer.prototype, "unload", { value: function unload()
 {
-	this.layers.forEach(function(layer)
+	this.layers.forEach(function unloadLayer(layer)
 	{
 		layer.unload();
 	});
@@ -1528,61 +1721,58 @@ function Renderer(parameters)
 
 WebGLRenderer.prototype = Object.create(Renderer.prototype);
 WebGLRenderer.constructor = WebGLRenderer;
-Object.defineProperty(WebGLRenderer.prototype, "setup", { value: function()
+Object.defineProperty(WebGLRenderer.prototype, "setup", { value: function setup()
 {
 	this.gl.clearColor(0, 0, 0, 1);
 	this.gl.clearDepth(1);
 	this.gl.enable(this.gl.DEPTH_TEST);
 	this.gl.depthFunc(this.gl.LEQUAL);
 } });
-Object.defineProperty(WebGLRenderer.prototype, "requestShaders", { value: function(name)
+Object.defineProperty(WebGLRenderer.prototype, "requestShaders", { value: function requestShaders(name)
 {
 	var shader = this.game.directory.shaders[name];
 	var rawVertex;
 	var rawFragment;
-	var compileShaders = wrapFunction(function()
+	var compileShaders = wrapFunction(function compileShaders()
 	{
 		if(rawVertex && rawFragment)
 		{
 			this.shaders = new OpenGLShaders(this, { vertex: { raw: rawVertex, canReformat: shader.vertex.canReformat, format: shader.vertex.format }, fragment: { raw: rawFragment, canReformat: shader.fragment.canReformat, format: shader.fragment.format } });
 		}
 	}, this);
-	requestText("resources/shaders/" + shader.vertex.source, function(text)
+	requestText("resources/shaders/" + shader.vertex.source, function compileIfFragmentPresent(text)
 	{
 		rawVertex = text;
 		compileShaders();
 	});
-	requestText("resources/shaders/" + shader.fragment.source, function(text)
+	requestText("resources/shaders/" + shader.fragment.source, function compileIfVertexPresent(text)
 	{
 		rawFragment = text;
 		compileShaders();
 	});	
 } });
-Object.defineProperty(WebGLRenderer.prototype, "render", { value: function(delta)
+Object.defineProperty(WebGLRenderer.prototype, "render", { value: function render(delta)
 {
+	if(this.textureMap.modified)
+	{
+		this.gl.bindTexture(this.gl.TEXTURE_2D, this.gl.createTexture());
+		this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.textureMap.stitched);
+		this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+		this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+		this.gl.generateMipmap(this.gl.TEXTURE_2D);
+		this.gl.activeTexture(this.gl.TEXTURE0);
+		this.textureMap.modified = false;
+		this.layers.forEach(function notifyLayerOfTextureMapChange(layer)
+		{
+			layer.onTextureMapChange(this);
+		});
+		this.textureMap.modified = false;
+	}
 	if(callSuper(this, "render", delta) && this.shaders)
 	{
 		this.shaders.tryRecompileShaders(this);
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-		if(this.textureMap.modified)
-		{
-			this.gl.bindTexture(this.gl.TEXTURE_2D, this.gl.createTexture());
-			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.textureMap.stitched);
-			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
-			this.gl.generateMipmap(this.gl.TEXTURE_2D);
-			this.gl.activeTexture(this.gl.TEXTURE0);
-			this.textureMap.modified = false;
-		}
-		if(this.textureMap.modified)
-		{
-			this.layers.forEach(function(layer)
-			{
-				layer.onTextureMapChange(this);
-			});
-			this.textureMap.modified = false;
-		}
-		this.layers.forEach(function(layer)
+		this.layers.forEach(function drawLayer(layer)
 		{
 			if(!(layer.vertexBuffer.vertices instanceof Float32Array))
 			{
@@ -1634,7 +1824,7 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function(delta
 			var aIntensity = layer.lighting.ambient.intensity;
 			var aColor = layer.lighting.ambient.color;
 			this.gl.uniform3f(this.shaders.uniforms.ambientColor, (aColor.r + 1) / 256 * aIntensity, (aColor.g + 1) / 256 * aIntensity, (aColor.b + 1) / 256 * aIntensity);
-			layer.lighting.directionals.forEach(function(directional, index)
+			layer.lighting.directionals.forEach(function pushLightToGPU(directional, index)
 			{
 				if(index < this.registeredLights)
 				{
@@ -1663,7 +1853,7 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function(delta
 	}
 	return false;
 } });
-Object.defineProperty(WebGLRenderer.prototype, "bindShaderAttribute", { value: function(buffer, type, location, source, parameters)
+Object.defineProperty(WebGLRenderer.prototype, "bindShaderAttribute", { value: function bindShaderAttribute(buffer, type, location, source, parameters)
 {
 	switch(type)
 	{
@@ -1677,13 +1867,13 @@ Object.defineProperty(WebGLRenderer.prototype, "bindShaderAttribute", { value: f
 		}
 	}
 } });
-Object.defineProperty(WebGLRenderer.prototype, "resize", { value: function()
+Object.defineProperty(WebGLRenderer.prototype, "resize", { value: function resize()
 {
 	callSuper(this, "resize");
 	this.gl.viewport(0, 0, innerWidth, innerHeight);
 	this.game.element.width = innerWidth; this.game.element.height = innerHeight;
 } });
-Object.defineProperty(WebGLRenderer.prototype, "bindTextureMap", { value: function()
+Object.defineProperty(WebGLRenderer.prototype, "bindTextureMap", { value: function bindTextureMap()
 {
 	this.textureMap.modified = true;
 } });
@@ -1697,14 +1887,14 @@ function WebGLRenderer(parameters)
 	this.requestShaders("default");
 }
 
-Object.defineProperty(OpenGLShaders, "populateShader", { value: function(shader, parameters)
+Object.defineProperty(OpenGLShaders, "populateShader", { value: function populateShader(shader, parameters)
 {
 	shader.raw = parameters.raw || "";
-	shader.canReformat = parameters.canReformat ? new Function("renderer", parameters.canReformat) : function(renderer) { return false; };
-	shader.format = parameters.format ? new Function("renderer", "raw", parameters.format) : function(renderer, raw) { return raw; }; 
+	shader.canReformat = parameters.canReformat ? new Function("renderer", parameters.canReformat) : alwaysFalse;
+	shader.format = parameters.format ? new Function("renderer", "raw", parameters.format) : function unmodifiedShader(renderer, raw) { return raw; }; 
 	return shader;
 } });
-Object.defineProperty(OpenGLShaders.prototype, "tryRecompileShaders", { value: function(renderer)
+Object.defineProperty(OpenGLShaders.prototype, "tryRecompileShaders", { value: function tryRecompileShaders(renderer)
 {
 	var program = this.program;
 	var relink = false;
@@ -1716,7 +1906,7 @@ Object.defineProperty(OpenGLShaders.prototype, "tryRecompileShaders", { value: f
 		this.populateVariables(renderer);
 	}
 } });
-Object.defineProperty(OpenGLShaders.prototype, "tryRecompileShader", { value: function(renderer, shader)
+Object.defineProperty(OpenGLShaders.prototype, "tryRecompileShader", { value: function tryRecompileShader(renderer, shader)
 {
 	if(shader.canReformat(renderer))
 	{
@@ -1725,17 +1915,17 @@ Object.defineProperty(OpenGLShaders.prototype, "tryRecompileShader", { value: fu
 	}
 	return false;
 } });
-Object.defineProperty(OpenGLShaders.prototype, "compileShader", { value: function(renderer, shader)
+Object.defineProperty(OpenGLShaders.prototype, "compileShader", { value: function compileShader(renderer, shader)
 {
 	renderer.gl.shaderSource(shader, shader.format(renderer, shader.raw));
 	renderer.gl.compileShader(shader);
 } });
-Object.defineProperty(OpenGLShaders.prototype, "populateVariables", { value: function(renderer)
+Object.defineProperty(OpenGLShaders.prototype, "populateVariables", { value: function populateVariables(renderer)
 {
 	this.attributes = this.getAttributes(renderer);
 	this.uniforms = this.getUniforms(renderer);
 } });
-Object.defineProperty(OpenGLShaders.prototype, "getAttributes", { value: function(renderer)
+Object.defineProperty(OpenGLShaders.prototype, "getAttributes", { value: function getAttributes(renderer)
 {
 	var attributes =
 	{
@@ -1745,7 +1935,7 @@ Object.defineProperty(OpenGLShaders.prototype, "getAttributes", { value: functio
 	};
 	return attributes;
 } });
-Object.defineProperty(OpenGLShaders.prototype, "getUniforms", { value: function(renderer)
+Object.defineProperty(OpenGLShaders.prototype, "getUniforms", { value: function getUniforms(renderer)
 {
 	var uniforms =
 	{
@@ -1781,9 +1971,30 @@ function OpenGLShaders(renderer, parameters)
 
 Projection.prototype = Object.create(Updatable.prototype);
 Projection.prototype.constructor = Projection;
-Object.defineProperty(Projection.prototype, "aspect", { get: function() { return this._aspect; }, set: function(aspect) { this._aspect = aspect; this.requestUpdate(); } });
-Object.defineProperty(Projection.prototype, "near", { get: function() { return this._near; }, set: function(near) { this._near = near; this.requestUpdate(); } });
-Object.defineProperty(Projection.prototype, "far", { get: function() { return this._far; }, set: function(far) { this._far = far; this.requestUpdate(); } });
+Object.defineProperty(Projection.prototype, "aspect", { get: function getAspect()
+{
+	return this._aspect;
+}, set: function setAspect(aspect)
+{
+	this._aspect = aspect;
+	this.requestUpdate();
+} });
+Object.defineProperty(Projection.prototype, "near", { get: function getNear()
+{
+	return this._near;
+}, set: function setNear(near)
+{
+	this._near = near;
+	this.requestUpdate();
+} });
+Object.defineProperty(Projection.prototype, "far", { get: function getFar()
+{
+	return this._far;
+}, set: function setFar(far)
+{
+	this._far = far;
+	this.requestUpdate();
+} });
 
 function Projection(parameters)
 {
@@ -1799,7 +2010,7 @@ function Projection(parameters)
 
 PerspectiveProjection.prototype = Object.create(Projection.prototype);
 PerspectiveProjection.prototype.constructor = PerspectiveProjection;
-Object.defineProperty(PerspectiveProjection.prototype, "update", { value: function()
+Object.defineProperty(PerspectiveProjection.prototype, "update", { value: function update()
 {
 	var rotation = (this.camera || { }).rotation;
 	if(this.camera)
@@ -1830,7 +2041,10 @@ Object.defineProperty(PerspectiveProjection.prototype, "update", { value: functi
 		this.matrix.modified = true;
 	}
 } });
-Object.defineProperty(PerspectiveProjection.prototype, "camera", { get: function() { return this._camera }, set: function(camera)
+Object.defineProperty(PerspectiveProjection.prototype, "camera", { get: function getCamera()
+{
+	return this._camera;
+}, set: function setCamera(camera)
 {
 	if(this._camera)
 	{
@@ -1860,13 +2074,47 @@ function PerspectiveProjection(parameters)
 
 OrthographicProjection.prototype = Object.create(Projection.prototype);
 OrthographicProjection.prototype.constructor = OrthographicProjection;
-Object.defineProperty(OrthographicProjection.prototype, "horizontal", { set: function(horizontal) { this.left = -(this.right = horizontal / 2); } });
-Object.defineProperty(OrthographicProjection.prototype, "vertical", { set: function(vertical) { this.bottom = -(this.top = vertical / 2); } });
-Object.defineProperty(OrthographicProjection.prototype, "left", { get: function() { return this._left; }, set: function(left) { this._left = left; this.requestUpdate() } });
-Object.defineProperty(OrthographicProjection.prototype, "right", { get: function() { return this._right; }, set: function(right) { this._right = right; this.requestUpdate() } });
-Object.defineProperty(OrthographicProjection.prototype, "bottom", { get: function() { return this._bottom; }, set: function(bottom) { this._bottom = bottom; this.requestUpdate() } });
-Object.defineProperty(OrthographicProjection.prototype, "top", { get: function() { return this._top; }, set: function(top) { this._top = top; this.requestUpdate() } });
-Object.defineProperty(OrthographicProjection.prototype, "update", { value: function()
+Object.defineProperty(OrthographicProjection.prototype, "horizontal", { set: function setHorizontal(horizontal)
+{
+	this.left = -(this.right = horizontal / 2);
+} });
+Object.defineProperty(OrthographicProjection.prototype, "vertical", { set: function setVertical(vertical)
+{
+	this.bottom = -(this.top = vertical / 2);
+} });
+Object.defineProperty(OrthographicProjection.prototype, "left", { get: function getLeft()
+{
+	return this._left;
+}, set: function setLeft(left)
+{
+	this._left = left;
+	this.requestUpdate();
+} });
+Object.defineProperty(OrthographicProjection.prototype, "right", { get: function getRight()
+{
+	return this._right;
+}, set: function setRight(right)
+{
+	this._right = right;
+	this.requestUpdate();
+} });
+Object.defineProperty(OrthographicProjection.prototype, "bottom", { get: function getBottom()
+{
+	return this._bottom;
+}, set: function setBottom(bottom)
+{
+	this._bottom = bottom;
+	this.requestUpdate();
+} });
+Object.defineProperty(OrthographicProjection.prototype, "top", { get: function getTop()
+{
+	return this._top;
+}, set: function setTop(top)
+{
+	this._top = top;
+	this.requestUpdate();
+} });
+Object.defineProperty(OrthographicProjection.prototype, "update", { value: function update()
 {
 	mat4.ortho(this.matrix, this.left * this.aspect, this.right * this.aspect, this.bottom, this.top, this.near, this.far);
 } });
@@ -1895,7 +2143,7 @@ function ModelView(parameters)
 
 CameraModelView.prototype = Object.create(ModelView.prototype);
 CameraModelView.prototype.constructor = CameraModelView;
-Object.defineProperty(CameraModelView.prototype, "update", { value: function()
+Object.defineProperty(CameraModelView.prototype, "update", { value: function update()
 {
 	var position = (this.camera || { }).position;
 	if(this.camera)
@@ -1926,7 +2174,10 @@ Object.defineProperty(CameraModelView.prototype, "update", { value: function()
 		this.matrix.modified = true;
 	}
 } });
-Object.defineProperty(CameraModelView.prototype, "camera", { get: function() { return this._camera }, set: function(camera)
+Object.defineProperty(CameraModelView.prototype, "camera", { get: function getCamera()
+{
+	return this._camera;
+}, set: function setCamera(camera)
 {
 	if(this._camera)
 		this._camera.position.removeWatcher(this.positionWatcher);
@@ -1978,9 +2229,9 @@ function Lighting(parameters)
 
 Layer.prototype = Object.create(Watchable.prototype);
 Layer.prototype.constructor = Layer;
-Object.defineProperty(Layer.prototype, "onTextureMapChange", { value: function(renderer)
+Object.defineProperty(Layer.prototype, "onTextureMapChange", { value: function onTextureMapChange(renderer)
 {
-	this.geometries.forEach(function(geometry)
+	this.geometries.forEach(function notifyGeometryOfTextureMapChange(geometry)
 	{
 		geometry.onTextureMapChange(renderer);
 	});
@@ -2006,7 +2257,7 @@ function Layer(parameters)
 
 Gui.prototype = Object.create(Layer.prototype);
 Gui.prototype.constructor = Gui;
-Object.defineProperty(Gui.prototype, "unload", { value: function() { } });
+Object.defineProperty(Gui.prototype, "unload", { value: function unload() { } });
 
 function Gui(parameters)
 {
@@ -2015,13 +2266,13 @@ function Gui(parameters)
 	this.projection = parameters.projection instanceof OrthographicProjection ? parameters.projection : new OrthographicProjection(parameters.projection);
 }
 
-Object.defineProperty(Player.prototype, "updateCameraPosition", { value: function()
+Object.defineProperty(Player.prototype, "updateCameraPosition", { value: function updateCameraPosition()
 {
 	this.camera.position.set(this.position.copy().add(this.headOffset));
 } });
-Object.defineProperty(Player.prototype, "controlsLoop", { value: function(timestamps, last, now)
+Object.defineProperty(Player.prototype, "controlsLoop", { value: function controlsLoop(timestamps, last, now)
 {
-	timestamps.forEach(function(timestamp)
+	timestamps.forEach(function timeBasedMove(timestamp)
 	{
 		var positionOffset = [ 0, 0, 0 ];
 		var keyboard = timestamp.params.keyboard || { };
@@ -2082,7 +2333,9 @@ function Player(parameters)
 
 Level.prototype = Object.create(Layer.prototype);
 Level.prototype.constructor = Level;
-Object.defineProperty(Level.prototype, "unload", { value: function() { } });
+Object.defineProperty(Level.prototype, "unload", { value: function unload()
+{
+} });
 
 function Level(parameters)
 {
@@ -2098,15 +2351,21 @@ function Level(parameters)
 
 Game.prototype = Object.create(ElementEventListener.prototype);
 Game.prototype.constructor = Game;
-Object.defineProperty(Game.prototype, "pushUpdateRequest", { value: function(request) {  return this.renderer.updateRequests.push(request) - 1; }, writable: true });
-Object.defineProperty(Game.prototype, "replaceUpdateRequest", { value: function(request, index)
+Object.defineProperty(Game.prototype, "pushUpdateRequest", { value: function pushUpdateRequest(request)
+{
+	return this.renderer.updateRequests.push(request) - 1;
+}, writable: true });
+Object.defineProperty(Game.prototype, "replaceUpdateRequest", { value: function replaceUpdateRequest(request, index)
 {
 	var oldRequest = this.renderer.updateRequests[index];
 	this.renderer.updateRequests[index] = request;
 	return oldRequest;
 } });
-Object.defineProperty(Game.prototype, "pullUpdateRequest", { value: function(index) { delete this.renderer.updateRequests[index]; }, writable: true });
-Object.defineProperty(Game.prototype, "unload", { value: function(event)
+Object.defineProperty(Game.prototype, "pullUpdateRequest", { value: function pullUpdateRequest(index)
+{
+	delete this.renderer.updateRequests[index];
+}, writable: true });
+Object.defineProperty(Game.prototype, "unload", { value: function unload(event)
 {
 	this.save();
 	this.controls.unload();
@@ -2115,21 +2374,34 @@ Object.defineProperty(Game.prototype, "unload", { value: function(event)
 	window.removeEventListener("beforeunload", this.unloadWrapper);
 	return "g";
 } });
-Object.defineProperty(Game.prototype, "save", { value: function() { } });
+Object.defineProperty(Game.prototype, "save", { value: function save()
+{
+} });
 
 function Game(parameters)
 {
 	parameters = parameters || { };
 	parameters.element = parameters.element instanceof Element ? parameters.element : document.body;
 	ElementEventListener.call(this, parameters);
-	this.addEventListener("contextmenu", function(event) { event.preventDefault(); });
+	this.addEventListener("contextmenu", wrapEventListener(function preventContextMenu(preventDefault) { preventDefault(); }, this, "preventDefault"));
 	if(!parameters.renderer)
 		parameters.renderer = { };
 	parameters.renderer.game = this;
 	var updateRequests = parameters.renderer.updateRequests || [ ];
-	this.pushUpdateRequest = function(request) { return updateRequests.push(request); };
-	this.replaceUpdateRequest = function(request, index) { var oldRequest = updateRequests[index]; updateRequests[index] = request; return oldRequest; };
-	this.pullUpdateRequest = function(index) { delete updateRequests[index]; };
+	this.pushUpdateRequest = function pushUpdateRequest(request)
+	{
+		return updateRequests.push(request);
+	};
+	this.replaceUpdateRequest = function replaceUpdateRequest(request, index)
+	{
+		var oldRequest = updateRequests[index];
+		updateRequests[index] = request;
+		return oldRequest;
+	};
+	this.pullUpdateRequest = function pullUpdateRequest(index)
+	{
+		delete updateRequests[index];
+	};
 	this.directory = parameters.directory || { };
 	this.options = { controls: { gamepad: { deadZone: .3 } } };
 	if(!parameters.controls)

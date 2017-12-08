@@ -5,6 +5,13 @@ Array.forEach = function(arrayLike, callback, thisArg)
 	for(var i = 0; i < arrayLike.length; i++)
 		callback.call(thisArg, arrayLike[i], i, arrayLike);
 }
+Array.map = function(arrayLike, callback, thisArg)
+{
+	var ret = [ ];
+	for(var i = 0; i < arrayLike.length; i++)
+		ret[i] = callback.call(thisArg, arrayLike[i], i, arrayLike);
+	return ret;
+}
 Object.defineProperty(Math, "rad", { value: function(deg)
 {
 	return deg * Math.DTR;
