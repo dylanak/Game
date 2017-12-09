@@ -960,10 +960,10 @@ Object.defineProperty(TextureMap.prototype, "restitchTextures", { value: functio
 	});
 	var textureUVs;
 	var i = Math.ceil(Math.log2(stitchedPixels));
-	for(; 2 ** i < Infinity && !textureUVs;)
-		textureUVs = TextureMap.calculateTextureUVs(2 ** ++i, textures);
+	for(; Math.pow(2, i) < Infinity && !textureUVs;)
+		textureUVs = TextureMap.calculateTextureUVs(Math.pow(2, ++i), textures);
 	var stitchCanvas = document.createElement("canvas");
-	stitchCanvas.width = stitchCanvas.height = 2 ** i;
+	stitchCanvas.width = stitchCanvas.height = Math.pow(2, i);
 	var stitchContext = stitchCanvas.getContext("2d");
 	textureUVs.forEach(function addTextureToStitched(textureUV, index)
 	{
@@ -971,7 +971,7 @@ Object.defineProperty(TextureMap.prototype, "restitchTextures", { value: functio
 		stitchContext.drawImage(texture.image, textureUV[0], textureUV[1], textureUV[2], textureUV[3]);
 		this[texture.index] = textureUV.map(function divideUVByStitchedLength(element)
 		{
-			return element / 2 ** i;
+			return element / Math.pow(2, i);
 		});
 	}, this);
 	this.stitched.src = stitchCanvas.toDataURL();
