@@ -1737,7 +1737,7 @@ Object.defineProperty(WebGLRenderer.prototype, "requestShaders", { value: functi
 	{
 		if(rawVertex && rawFragment)
 		{
-			this.shaders = new OpenGLShaders(this, { vertex: { raw: rawVertex, canReformat: shader.vertex.canReformat, format: shader.vertex.format }, fragment: { raw: rawFragment, canReformat: shader.fragment.canReformat, format: shader.fragment.format } });
+			this.shaders = new GLSLShaders(this, { vertex: { raw: rawVertex, canReformat: shader.vertex.canReformat, format: shader.vertex.format }, fragment: { raw: rawFragment, canReformat: shader.fragment.canReformat, format: shader.fragment.format } });
 		}
 	}, this);
 	requestText("resources/shaders/" + shader.vertex.source, function compileIfFragmentPresent(text)
@@ -1887,14 +1887,14 @@ function WebGLRenderer(parameters)
 	this.requestShaders("default");
 }
 
-Object.defineProperty(OpenGLShaders, "populateShader", { value: function populateShader(shader, parameters)
+Object.defineProperty(GLSLShaders, "populateShader", { value: function populateShader(shader, parameters)
 {
 	shader.raw = parameters.raw || "";
 	shader.canReformat = parameters.canReformat ? new Function("renderer", parameters.canReformat) : alwaysFalse;
 	shader.format = parameters.format ? new Function("renderer", "raw", parameters.format) : function unmodifiedShader(renderer, raw) { return raw; }; 
 	return shader;
 } });
-Object.defineProperty(OpenGLShaders.prototype, "tryRecompileShaders", { value: function tryRecompileShaders(renderer)
+Object.defineProperty(GLSLShaders.prototype, "tryRecompileShaders", { value: function tryRecompileShaders(renderer)
 {
 	var program = this.program;
 	var relink = false;
@@ -1906,7 +1906,7 @@ Object.defineProperty(OpenGLShaders.prototype, "tryRecompileShaders", { value: f
 		this.populateVariables(renderer);
 	}
 } });
-Object.defineProperty(OpenGLShaders.prototype, "tryRecompileShader", { value: function tryRecompileShader(renderer, shader)
+Object.defineProperty(GLSLShaders.prototype, "tryRecompileShader", { value: function tryRecompileShader(renderer, shader)
 {
 	if(shader.canReformat(renderer))
 	{
@@ -1920,12 +1920,12 @@ Object.defineProperty(OpenGLShaders.prototype, "compileShader", { value: functio
 	renderer.gl.shaderSource(shader, shader.format(renderer, shader.raw));
 	renderer.gl.compileShader(shader);
 } });
-Object.defineProperty(OpenGLShaders.prototype, "populateVariables", { value: function populateVariables(renderer)
+Object.defineProperty(GLSLShaders.prototype, "populateVariables", { value: function populateVariables(renderer)
 {
 	this.attributes = this.getAttributes(renderer);
 	this.uniforms = this.getUniforms(renderer);
 } });
-Object.defineProperty(OpenGLShaders.prototype, "getAttributes", { value: function getAttributes(renderer)
+Object.defineProperty(GLSLShaders.prototype, "getAttributes", { value: function getAttributes(renderer)
 {
 	var attributes =
 	{
@@ -1935,7 +1935,7 @@ Object.defineProperty(OpenGLShaders.prototype, "getAttributes", { value: functio
 	};
 	return attributes;
 } });
-Object.defineProperty(OpenGLShaders.prototype, "getUniforms", { value: function getUniforms(renderer)
+Object.defineProperty(GLSLShaders.prototype, "getUniforms", { value: function getUniforms(renderer)
 {
 	var uniforms =
 	{
@@ -1955,12 +1955,12 @@ Object.defineProperty(OpenGLShaders.prototype, "getUniforms", { value: function 
 	return uniforms;
 } });
 
-function OpenGLShaders(renderer, parameters)
+function GLSLShaders(renderer, parameters)
 {
 	parameters = parameters || { };
 	this.program = parameters.program || renderer.gl.createProgram();
-	this.vertex = OpenGLShaders.populateShader(renderer.gl.createShader(renderer.gl.VERTEX_SHADER), parameters.vertex || { });
-	this.fragment = OpenGLShaders.populateShader(renderer.gl.createShader(renderer.gl.FRAGMENT_SHADER), parameters.fragment || { });
+	this.vertex = GLSLShaders.populateShader(renderer.gl.createShader(renderer.gl.VERTEX_SHADER), parameters.vertex || { });
+	this.fragment = GLSLShaders.populateShader(renderer.gl.createShader(renderer.gl.FRAGMENT_SHADER), parameters.fragment || { });
 	this.compileShader(renderer, this.vertex);
 	this.compileShader(renderer, this.fragment);
 	renderer.gl.attachShader(this.program, this.vertex);
