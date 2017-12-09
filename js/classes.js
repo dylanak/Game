@@ -1915,7 +1915,7 @@ Object.defineProperty(GLSLShaders.prototype, "tryRecompileShader", { value: func
 	}
 	return false;
 } });
-Object.defineProperty(OpenGLShaders.prototype, "compileShader", { value: function compileShader(renderer, shader)
+Object.defineProperty(GLSLShaders.prototype, "compileShader", { value: function compileShader(renderer, shader)
 {
 	renderer.gl.shaderSource(shader, shader.format(renderer, shader.raw));
 	renderer.gl.compileShader(shader);
