@@ -53,6 +53,31 @@ function callSuper(thisArg, name)
 	return Object.getPrototypeOf(Object.getPrototypeOf(thisArg))[name].apply(thisArg, Array.from(arguments).splice(2, arguments.length - 2));
 }
 
+function isUnicodeNumber(unicode)
+{
+	return unicode >= 48 && unicode <= 57;
+}
+
+function isUnicodeLowercaseLetter(unicode)
+{
+	return unicode >= 97 && unicode <= 122;
+}
+
+function isUnicodeUppercaseLetter(unicode)
+{
+	return unicode >= 65 && unicode <= 90;
+}
+
+function isUnicodeLetter(unicode)
+{
+	return isUnicodeLowercaseLetter(unicode) || isUnicodeUppercaseLetter(unicode);
+}
+
+function isUnicodeAlphaNumeral(unicode)
+{
+	return isUnicodeLetter(unicode) || isUnicodeNumber(unicode);
+}
+
 function requestText(source, onload)
 {
 	var request = new XMLHttpRequest();
