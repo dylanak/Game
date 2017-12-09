@@ -12,6 +12,72 @@ function alwaysTrue()
 	return true;
 }
 
+function self()
+{
+	return function returnArg(arg)
+	{
+		return arg;
+	};
+}
+
+function constant(constantRet)
+{
+	return function returnConstant()
+	{
+		return constantRet;
+	};
+}
+
+function addTo()
+{
+	var additive = arguments.length > 0 ? arguments[0] : NaN;
+	Array.forEach(arguments, function addToAdditive(a, index)
+	{
+		if(index > 0)
+			additive += a;
+	});
+	return Number.isNaN(additive) ? self : function addAdditiveTo(base)
+	{
+		return base + additive;
+	};
+}
+
+function subtractFrom()
+{
+	return addTo.apply(this, Array.map(arguments, function additiveInverseOf(a)
+	{
+		return -a;
+	}));
+}
+
+function multiplyBy()
+{
+	var multiple = arguments.length > 0 ? arguments[0] : NaN;
+	Array.forEach(arguments, function multiplyMultipleBy(m, index)
+	{
+		if(index > 0)
+			multiple *= m;
+	});
+	return Number.isNaN(multiple) ? self : function multiplyByMultiple(base)
+	{
+		return base * multiple;
+	};
+}
+
+function divideBy()
+{
+	var divisor = arguments.length > 0 ? arguments[0] : NaN;
+	Array.forEach(arguments, function divideDivisorBy(d, index)
+	{
+		if(index > 0)
+			divisor *= d;
+	});
+	return Number.isNaN(divisor) ? self : function divideByDivisor(base)
+	{
+		return base / divisor;
+	};
+}
+
 function isPowerOfTwo(value)
 {
 	return (value & (value - 1)) == 0;
