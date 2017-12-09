@@ -26,7 +26,7 @@ Array.some = function(arrayLike, callback, thisArg)
 			return true;
 	return false;
 }
-Array.find = function(arrayLike, callbakck, thisArg)
+Array.find = function(arrayLike, callback, thisArg)
 {
 	for(var i = 0; i < arrayLike.length; i++)
 		if(callback(arrayLike[i], i, arrayLike))
