@@ -157,27 +157,40 @@ Object.defineProperty(ElementEventListener.prototype, "element", { get: function
 	return this._element;
 }, set: function setElement(element)
 {
-	var entries = Object.entries(this.eventListeners);
+
 	if(this._element)
-		entries.forEach(function removeEventListenerFromPreviousElement(entry)
-		{
-			this._element.removeEventListener(entry[0], entry[1]);
-		}, this);
+		this.onElementDelete();
 	if(element)
 	{
 		this._element = element;
-		entries.forEach(function addEventListenerToNewEntry(entry)
-		{
-			element.addEventListener(entry[0], entry[1]);
-		}, this);
+		this.onElementSet();
 	}
 	else
+	{
+		this._element = null;
 		this.reset();
+	}
+} });
+Object.defineProperty(ElementEventListener.prototype, "onElementDelete", { value: function onElementDelete()
+{
+	this.eventListeners.events.forEach(function removeEventListenerFromPreviousElement(event)
+	{
+		this.element.removeEventListener(event, this.eventListeners[event]);
+	}, this);
+} });
+Object.defineProperty(ElementEventListener.prototype, "onElementSet", { value: function onElementSet()
+{
+	this.eventListeners.events.forEach(function addEventListenerToNewEntry(event)
+	{
+		this.element.addEventListener(event, this.eventListeners[event]);
+	}, this);
 } });
 Object.defineProperty(ElementEventListener.prototype, "addEventListener", { value: function addEventListener(event, func) 
 {
 	if(this.eventListeners[event])
 		this.removeEventListener(event);
+	else
+		this.eventListeners.events.push(event);
 	var wrappedFunc = this.eventListeners[event] = wrapFunction(func, this);
 	if(this.element)
 		this.element.addEventListener(event, wrappedFunc);
@@ -186,6 +199,7 @@ Object.defineProperty(ElementEventListener.prototype, "removeEventListener", { v
 {
 	if(this.element)
 		this.element.removeEventListener(event, this.eventListeners[event]);
+	delete this.eventListeners.events[this.eventListeners.events.indexOf(event)];
 	delete this.eventListeners[event];
 } });
 Object.defineProperty(ElementEventListener.prototype, "reset", { value: function reset()
@@ -196,7 +210,7 @@ function ElementEventListener(parameters)
 {
 	parameters = parameters || { };
 	this.reset();
-	this.eventListeners = Object.assign({ }, parameters.eventListeners || { });
+	this.eventListeners = Object.assign({ events: [ ] }, parameters.eventListeners || { });
 	this.element = parameters.element;
 }
 
@@ -1591,6 +1605,8 @@ function Keyboard(parameters)
 	this.addEventListener("keyup", wrapEventListener(this.processKeyUp, this, "key"));
 }
 
+Gamepad.prototype = Object.create(ElementFocusEventListener.prototype);
+Gamepad.prototype.constructor = Gamepad;
 Object.defineProperty(Gamepad, "buttonFilter", { value: function isGamepadButton(controller)
 {
 	return controller.startsWith("button");
@@ -1601,46 +1617,49 @@ Object.defineProperty(Gamepad, "analogFilter", { value: function isGamepadAnalog
 } });
 Object.defineProperty(Gamepad.prototype, "update", { value: function update(last, now)
 {
-	var gamepads = navigator.getGamepads();
-	for(var i = 0; i < gamepads.length; i++)
+	if(this.focused)
 	{
-		var gamepad = gamepads[i];
-		if(gamepad)
+		var gamepads = navigator.getGamepads();
+		for(var i = 0; i < gamepads.length; i++)
 		{
-			var params = { };
-			for(var j = 0; j < Math.floor(gamepad.axes.length / 2); j++)
+			var gamepad = gamepads[i];
+			if(gamepad)
 			{
-				var analogX = gamepad.axes[j * 2];
-				var analogY = -gamepad.axes[(j * 2) + 1];
-				var deadZone = this.controls.game.options.controls.gamepad.deadZone;
-				if(Math.abs(analogX) < deadZone)
-					analogX = 0;
-				if(Math.abs(analogY) < deadZone)
-					analogY = 0;
-				var controller = "analog" + j;
-				if(analogX != 0 || analogY != 0)
+				var params = { };
+				for(var j = 0; j < Math.floor(gamepad.axes.length / 2); j++)
 				{
-					var analogInfo = [ Math.deg(Math.atan2(analogX, analogY)), Math.min(Math.hypot(analogX, analogY), 1) ];
-					this.controls.getControls("gamepad." + controller).forEach(function setControlRotaryParameter(control)
+					var analogX = gamepad.axes[j * 2];
+					var analogY = -gamepad.axes[(j * 2) + 1];
+					var deadZone = this.controls.game.options.controls.gamepad.deadZone;
+					if(Math.abs(analogX) < deadZone)
+						analogX = 0;
+					if(Math.abs(analogY) < deadZone)
+						analogY = 0;
+					var controller = "analog" + j;
+					if(analogX != 0 || analogY != 0)
 					{
-						params.setPropertyAt("gamepad." + control.name, analogInfo);
-					});
+						var analogInfo = [ Math.deg(Math.atan2(analogX, analogY)), Math.min(Math.hypot(analogX, analogY), 1) ];
+						this.controls.getControls("gamepad." + controller).forEach(function setControlRotaryParameter(control)
+						{
+							params.setPropertyAt("gamepad." + control.name, analogInfo);
+						});
+					}
 				}
-			}
-			for(var j = 0; j < gamepad.buttons.length; j++)
-			{
-				var buttonPressed = gamepad.buttons[j].pressed;
-				var controller = "button" + j;
-				if(buttonPressed)
+				for(var j = 0; j < gamepad.buttons.length; j++)
 				{
-					this.controls.getControls("gamepad." + controller).forEach(function setControlButtonParameter(control)
+					var buttonPressed = gamepad.buttons[j].pressed;
+					var controller = "button" + j;
+					if(buttonPressed)
 					{
-						params.setPropertyAt("gamepad." + control.name, true);
-					}, this);
+						this.controls.getControls("gamepad." + controller).forEach(function setControlButtonParameter(control)
+						{
+							params.setPropertyAt("gamepad." + control.name, true);
+						}, this);
+					}
 				}
+				if(Object.entries(params).length > 0)
+					this.timestamps.push(new Timestamp(params, last, now - last));
 			}
-			if(Object.entries(params).length > 0)
-				this.timestamps.push(new Timestamp(params, last, now - last));
 		}
 	}
 } });
@@ -1650,8 +1669,21 @@ function Gamepad(parameters)
 	this.timestamps = [ ];
 	if(parameters.controls instanceof Controls)
 		this.controls = parameters.controls;
+	ElementFocusEventListener.call(this, parameters);
 }
 
+Controls.prototype = Object.create(ElementEventListener.prototype);
+Controls.prototype.constructor = Controls;
+Object.defineProperty(Controls.prototype, "onElementDelete", { value: function onElementDelete()
+{
+	callSuper(this, "onElementDelete");
+	this.keyboard.element = this.mouse.element = this.gamepad.element = undefined;
+} });
+Object.defineProperty(Controls.prototype, "onElementSet", { value: function onElementSet()
+{
+	callSuper(this, "onElementSet");
+	this.keyboard.element = this.mouse.element = this.gamepad.element = this.element;
+} });
 Object.defineProperty(Controls.prototype, "addControl", { value: function addControl(name, func, type, keyboardControllerFilter, gamepadControllerFilter, defaultKeyboardControllers, defaultGamepadControllers)
 {
 	var control = this.controls[name] = new Control(this, name, func, type, keyboardControllerFilter, gamepadControllerFilter, defaultKeyboardControllers, defaultGamepadControllers);
@@ -1734,7 +1766,6 @@ function Controls(parameters)
 {
 	parameters = parameters || { };
 	this.game = parameters.game;
-	this.element = parameters.element instanceof Element ? parameters.element : document.body;
 	this.nullControl = new Control(this, "null", emptyFunction, 0, undefined, undefined, [ ], [ ]);
 	this.controls = { };
 	this.controllers = { };
@@ -1742,19 +1773,20 @@ function Controls(parameters)
 	if(!parameters.mouse)
 		parameters.mouse = { };
 	parameters.mouse.controls = this;
-	parameters.mouse.element = this.element;
 	if(!parameters.keyboard)
 		parameters.keyboard = { };
 	parameters.keyboard.controls = this;
-	parameters.keyboard.element = this.element;
 	if(!parameters.gamepad)
 		parameters.gamepad = { };
 	parameters.gamepad.controls = this;
 	this.mouse = parameters.mouse instanceof Mouse ? parameters.mouse : new Mouse(parameters.mouse);
 	this.keyboard = parameters.keyboard instanceof Keyboard ? parameters.keyboard : new Keyboard(parameters.keyboard);
 	this.gamepad = parameters.gamepad instanceof Gamepad ? parameters.gamepad : new Gamepad(parameters.gamepad);
+	ElementEventListener.call(this, parameters);
 }
 
+Renderer.prototype = Object.create(ElementEventListener.prototype);
+Renderer.prototype.constructor = Renderer;
 Object.defineProperty(Renderer.prototype, "animate", { value: function animate(now)
 {
 	now /= 1000;
@@ -1808,10 +1840,26 @@ function Renderer(parameters)
 	this.updateRequests = Array.isArray(parameters.updateRequests) ? parameters.updateRequests : Array.from(parameters.updateRequests);
 	this.layers = Array.isArray(parameters.layers) ? parameters.layers : Array.from(parameters.layers);
 	this.resizeWrapper = wrapFunction(this.resize, this);
+	ElementEventListener.call(this, parameters);
 }
 
 WebGLRenderer.prototype = Object.create(Renderer.prototype);
-WebGLRenderer.constructor = WebGLRenderer;
+WebGLRenderer.prototype.constructor = WebGLRenderer;
+Object.defineProperty(WebGLRenderer.prototype, "onElementDelete", { value: function onElementDelete()
+{
+	delete this.gl;
+} });
+Object.defineProperty(WebGLRenderer.prototype, "onElementSet", { value: function onElementSet()
+{
+	callSuper(this, "onElementSet");
+	if(this.element.getContext)
+	{
+		this.gl = this.element.getContext("webgl2") || this.game.element.getContext("webgl") || this.game.element.getContext("experimental-webgl");
+		this.setup();
+		if(!this.shaders)
+			this.requestShaders("default");
+	}
+} });
 Object.defineProperty(WebGLRenderer.prototype, "setup", { value: function setup()
 {
 	this.gl.clearColor(0, 0, 0, 1);
@@ -1846,106 +1894,109 @@ Object.defineProperty(WebGLRenderer.prototype, "requestShaders", { value: functi
 } });
 Object.defineProperty(WebGLRenderer.prototype, "render", { value: function render(delta)
 {
-	if(this.textureMap.modified)
+	if(this.gl)
 	{
-		this.gl.bindTexture(this.gl.TEXTURE_2D, this.gl.createTexture());
-		this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.textureMap.stitched);
-		this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-		this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
-		this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-		this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
-		this.gl.generateMipmap(this.gl.TEXTURE_2D);
-		this.gl.activeTexture(this.gl.TEXTURE0);
-		this.textureMap.modified = false;
-		this.layers.forEach(function notifyLayerOfTextureMapChange(layer)
+		if(this.textureMap.modified)
 		{
-			layer.onTextureMapChange(this);
-		});
-		this.textureMap.modified = false;
-	}
-	if(callSuper(this, "render", delta) && this.shaders)
-	{
-		this.shaders.tryRecompileShaders(this);
-		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-		this.layers.forEach(function drawLayer(layer)
-		{
-			if(!(layer.vertexBuffer.vertices instanceof Float32Array))
+			this.gl.bindTexture(this.gl.TEXTURE_2D, this.gl.createTexture());
+			this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.textureMap.stitched);
+			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+			this.gl.generateMipmap(this.gl.TEXTURE_2D);
+			this.gl.activeTexture(this.gl.TEXTURE0);
+			this.textureMap.modified = false;
+			this.layers.forEach(function notifyLayerOfTextureMapChange(layer)
 			{
-				var glBuffer = layer.vertexBuffer.vertices.glBuffer;
-				var vertices = layer.vertexBuffer.vertices = new Float32Array(layer.vertexBuffer.vertices);
-				if(!glBuffer)
-					this.bindShaderAttribute(glBuffer = this.gl.createBuffer(), 0, this.shaders.attributes.vertexPosition, layer.vertexBuffer.vertices, { });
-				vertices.glBuffer = glBuffer;
-				vertices.modified = true;
-			}
-			if(!(layer.vertexBuffer.uvs instanceof Float32Array))
-			{
-				var glBuffer= layer.vertexBuffer.uvs.glBuffer;
-				var uvs = layer.vertexBuffer.uvs = new Float32Array(layer.vertexBuffer.uvs);
-				if(!glBuffer)
-					this.bindShaderAttribute(glBuffer = this.gl.createBuffer(), 0, this.shaders.attributes.textureCoord, layer.vertexBuffer.uvs, { components: 2 });
-				uvs.glBuffer = glBuffer;
-				uvs.modified = true;
-			}
-			if(!(layer.vertexBuffer.normals instanceof Float32Array))
-			{
-				var glBuffer = layer.vertexBuffer.normals.glBuffer;
-				var normals = layer.vertexBuffer.normals = new Float32Array(layer.vertexBuffer.normals);
-				if(!glBuffer)
-					this.bindShaderAttribute(glBuffer = this.gl.createBuffer(), 0, this.shaders.attributes.normalDirection, layer.vertexBuffer.normals, { });
-				normals.glBuffer = glBuffer;
-				normals.modified = true;
-			}
-			if(layer.vertexBuffer.vertices.modified)
-			{
-				this.gl.bindBuffer(this.gl.ARRAY_BUFFER, layer.vertexBuffer.vertices.glBuffer);
-				this.gl.bufferData(this.gl.ARRAY_BUFFER, layer.vertexBuffer.vertices, this.gl.STATIC_DRAW);
-				layer.vertexBuffer.vertices.modified = false;
-			}
-			if(layer.vertexBuffer.uvs.modified)
-			{
-				
-				layer.vertexBuffer.uvs.modified = false;
-			}
-			if(layer.vertexBuffer.normals.modified)
-			{
-
-				layer.vertexBuffer.normals.modified = false;
-			}
-			var indexBuffer = this.gl.createBuffer();
-			this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-			this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, layer.vertexBuffer.triangles, this.gl.STATIC_DRAW);
-			this.gl.useProgram(this.shaders.program);
-			var aIntensity = layer.lighting.ambient.intensity;
-			var aColor = layer.lighting.ambient.color;
-			this.gl.uniform3f(this.shaders.uniforms.ambientColor, (aColor.r + 1) / 256 * aIntensity, (aColor.g + 1) / 256 * aIntensity, (aColor.b + 1) / 256 * aIntensity);
-			layer.lighting.directionals.forEach(function pushLightToGPU(directional, index)
-			{
-				if(index < this.registeredLights)
-				{
-					var direction = directional.direction;
-					this.gl.uniform3fv(this.shaders.uniforms.dlDirections[index], new Float32Array(direction));
-					var dIntensity = directional.intensity;
-					var dColor = directional.color;
-					this.gl.uniform3fv(this.shaders.uniforms.dlColors[index], [ (dColor.r + 1) / 256 * dIntensity, (dColor.g + 1) / 256 * dIntensity, (dColor.b + 1) / 256 * dIntensity ]);
-				}
+				layer.onTextureMapChange(this);
 			});
-			if(layer.projection.matrix.modified)
+			this.textureMap.modified = false;
+		}
+		if(callSuper(this, "render", delta) && this.shaders)
+		{
+			this.shaders.tryRecompileShaders(this);
+			this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+			this.layers.forEach(function drawLayer(layer)
 			{
-				this.gl.uniformMatrix4fv(this.shaders.uniforms.projectionMatrix, false, layer.projection.matrix);
-				layer.projection.matrix.modified = false;
-			}
-			if(layer.modelView.matrix.modified)
-			{
-				this.gl.uniformMatrix4fv(this.shaders.uniforms.modelViewMatrix, false, layer.modelView.matrix);
-				this.gl.uniformMatrix3fv(this.shaders.uniforms.normalMatrix, false, mat3.transpose([ ], mat3.invert([ ], mat3.fromMat4([ ], layer.modelView.matrix))));
-				layer.modelView.matrix.modified = false;
-			}
-			this.gl.uniform1i(this.shaders.uniforms.uSampler, 0);
-			this.gl.drawElements(this.gl.TRIANGLES, layer.vertexBuffer.triangles.length, this.gl.UNSIGNED_SHORT, 0);
-		}, this);
-		return true;
+				if(!(layer.vertexBuffer.vertices instanceof Float32Array))
+				{
+					var glBuffer = layer.vertexBuffer.vertices.glBuffer;
+					var vertices = layer.vertexBuffer.vertices = new Float32Array(layer.vertexBuffer.vertices);
+					if(!glBuffer)
+						this.bindShaderAttribute(glBuffer = this.gl.createBuffer(), 0, this.shaders.attributes.vertexPosition, layer.vertexBuffer.vertices, { });
+					vertices.glBuffer = glBuffer;
+					vertices.modified = true;
+				}
+				if(!(layer.vertexBuffer.uvs instanceof Float32Array))
+				{
+					var glBuffer= layer.vertexBuffer.uvs.glBuffer;
+					var uvs = layer.vertexBuffer.uvs = new Float32Array(layer.vertexBuffer.uvs);
+					if(!glBuffer)
+						this.bindShaderAttribute(glBuffer = this.gl.createBuffer(), 0, this.shaders.attributes.textureCoord, layer.vertexBuffer.uvs, { components: 2 });
+					uvs.glBuffer = glBuffer;
+					uvs.modified = true;
+				}
+				if(!(layer.vertexBuffer.normals instanceof Float32Array))
+				{
+					var glBuffer = layer.vertexBuffer.normals.glBuffer;
+					var normals = layer.vertexBuffer.normals = new Float32Array(layer.vertexBuffer.normals);
+					if(!glBuffer)
+						this.bindShaderAttribute(glBuffer = this.gl.createBuffer(), 0, this.shaders.attributes.normalDirection, layer.vertexBuffer.normals, { });
+					normals.glBuffer = glBuffer;
+					normals.modified = true;
+				}
+				if(layer.vertexBuffer.vertices.modified)
+				{
+					this.gl.bindBuffer(this.gl.ARRAY_BUFFER, layer.vertexBuffer.vertices.glBuffer);
+					this.gl.bufferData(this.gl.ARRAY_BUFFER, layer.vertexBuffer.vertices, this.gl.STATIC_DRAW);
+					layer.vertexBuffer.vertices.modified = false;
+				}
+				if(layer.vertexBuffer.uvs.modified)
+				{	
+					layer.vertexBuffer.uvs.modified = false;
+				}
+				if(layer.vertexBuffer.normals.modified)
+				{
+					layer.vertexBuffer.normals.modified = false;
+				}
+				var indexBuffer = this.gl.createBuffer();
+				this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+				this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, layer.vertexBuffer.triangles, this.gl.STATIC_DRAW);
+				this.gl.useProgram(this.shaders.program);
+				var aIntensity = layer.lighting.ambient.intensity;
+				var aColor = layer.lighting.ambient.color;
+				this.gl.uniform3f(this.shaders.uniforms.ambientColor, (aColor.r + 1) / 256 * aIntensity, (aColor.g + 1) / 256 * aIntensity, (aColor.b + 1) / 256 * aIntensity);
+				layer.lighting.directionals.forEach(function pushLightToGPU(directional, index)
+				{
+					if(index < this.registeredLights)
+					{
+						var direction = directional.direction;
+						this.gl.uniform3fv(this.shaders.uniforms.dlDirections[index], new Float32Array(direction));
+						var dIntensity = directional.intensity;
+						var dColor = directional.color;
+						this.gl.uniform3fv(this.shaders.uniforms.dlColors[index], [ (dColor.r + 1) / 256 * dIntensity, (dColor.g + 1) / 256 * dIntensity, (dColor.b + 1) / 256 * dIntensity ]);
+					}
+				});
+				if(layer.projection.matrix.modified)
+				{
+					this.gl.uniformMatrix4fv(this.shaders.uniforms.projectionMatrix, false, layer.projection.matrix);
+					layer.projection.matrix.modified = false;
+				}
+				if(layer.modelView.matrix.modified)
+				{
+					this.gl.uniformMatrix4fv(this.shaders.uniforms.modelViewMatrix, false, layer.modelView.matrix);
+					this.gl.uniformMatrix3fv(this.shaders.uniforms.normalMatrix, false, mat3.transpose([ ], mat3.invert([ ], mat3.fromMat4([ ], layer.modelView.matrix))));
+					layer.modelView.matrix.modified = false;
+				}
+				this.gl.uniform1i(this.shaders.uniforms.uSampler, 0);
+				this.gl.drawElements(this.gl.TRIANGLES, layer.vertexBuffer.triangles.length, this.gl.UNSIGNED_SHORT, 0);
+			}, this);
+			return true;
+		}
+		return false;
 	}
+	callSuper(this, "render", delta);
 	return false;
 } });
 Object.defineProperty(WebGLRenderer.prototype, "bindShaderAttribute", { value: function bindShaderAttribute(buffer, type, location, source, parameters)
@@ -1977,9 +2028,6 @@ function WebGLRenderer(parameters)
 {
 	parameters = parameters || { };
 	Renderer.call(this, parameters);
-	this.gl = this.game.element.getContext("webgl2") || this.game.element.getContext("webgl") || this.game.element.getContext("experimental-webgl");
-	this.setup();
-	this.requestShaders("default");
 }
 
 Object.defineProperty(GLSLShaders, "populateShader", { value: function populateShader(shader, parameters)
@@ -2446,6 +2494,19 @@ function Level(parameters)
 
 Game.prototype = Object.create(ElementEventListener.prototype);
 Game.prototype.constructor = Game;
+Object.defineProperty(Game.prototype, "onElementDelete", { value: function onElementDelete()
+{
+	callSuper(this, "onElementDelete");
+	if(this.element.requestFullscreen == this.element.webkitRequestFullscreen || this.element.requestFullscreen == this.element.mozRequestFullscreen)
+		delete this.element.requestFullscreen;
+	this.renderer.element = this.controls.element = undefined;
+} });
+Object.defineProperty(Game.prototype, "onElementSet", { value: function onElementSet()
+{
+	callSuper(this, "onElementSet");
+	this.element.requestFullscreen = this.element.requestFullscreen || this.element.webkitRequestFullscreen || this.element.mozRequestFullscreen;
+	this.renderer.element = this.controls.element = this.element;
+} });
 Object.defineProperty(Game.prototype, "pushUpdateRequest", { value: function pushUpdateRequest(request)
 {
 	return this.renderer.updateRequests.push(request) - 1;
@@ -2476,9 +2537,6 @@ Object.defineProperty(Game.prototype, "save", { value: function save()
 function Game(parameters)
 {
 	parameters = parameters || { };
-	parameters.element = parameters.element instanceof Element ? parameters.element : document.body;
-	ElementEventListener.call(this, parameters);
-	this.addEventListener("contextmenu", wrapEventListener(function preventContextMenu(preventDefault) { preventDefault(); }, this, "preventDefault"));
 	if(!parameters.renderer)
 		parameters.renderer = { };
 	parameters.renderer.game = this;
@@ -2502,7 +2560,6 @@ function Game(parameters)
 	if(!parameters.controls)
 		parameters.controls = { };
 	parameters.controls.game = this;
-	parameters.controls.element = this.element;
 	this.controls = new Controls(parameters.controls);
 	if(!parameters.gui)
 		parameters.gui = { };
@@ -2525,4 +2582,6 @@ function Game(parameters)
 	this.controls.startControlsLoop();
 	this.renderer.animate();
 	window.addEventListener("beforeunload", this.unloadWrapper = wrapFunction(this.unload, this));
+	ElementEventListener.call(this, parameters);
+	this.addEventListener("contextmenu", wrapEventListener(function preventContextMenu(preventDefault) { return true; }, this));
 }
