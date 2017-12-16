@@ -107,10 +107,12 @@ function wrapEventListener(func, thisArg)
 	return function callWrappedEventListener(event)
 	{
 		event = event || window.event;
-		return func.apply(thisArg, argStrings.map(function propertyWithName(name)
+		var ret = func.apply(thisArg, argStrings.map(function propertyWithName(name)
 		{
 			return event[name];
 		}).slice(2));
+		if(ret)
+			event.preventDefault();
 	};
 }
 
