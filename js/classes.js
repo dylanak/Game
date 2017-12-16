@@ -699,12 +699,12 @@ Object.defineProperty(RectangularPrismGeometry.prototype, "buildGeometry", { val
 	var index12 = this.allocation.getVertexIndex(12), index14 = this.allocation.getVertexIndex(14);
 	var index16 = this.allocation.getVertexIndex(16), index18 = this.allocation.getVertexIndex(18);
 	var index20 = this.allocation.getVertexIndex(20), index22 = this.allocation.getVertexIndex(22);
-	this.allocation.setTriangle(0, index0, this.allocation.getVertexIndex(1), index2); this.allocation.setTriangle(1, index0, index2, this.allocation.getVertexIndex(3));
+	this.allocation.setTriangle(0, index0, index2, this.allocation.getVertexIndex(1)); this.allocation.setTriangle(1, index0, this.allocation.getVertexIndex(3), index2);
 	this.allocation.setTriangle(2, index4, this.allocation.getVertexIndex(5), index6); this.allocation.setTriangle(3, index4, index6, this.allocation.getVertexIndex(7));
-	this.allocation.setTriangle(4, index8, this.allocation.getVertexIndex(9), index10); this.allocation.setTriangle(5, index8, index10, this.allocation.getVertexIndex(11));
-	this.allocation.setTriangle(6, index12, this.allocation.getVertexIndex(13), index14); this.allocation.setTriangle(7, index12, index14, this.allocation.getVertexIndex(15));
-	this.allocation.setTriangle(8, index16, this.allocation.getVertexIndex(17), index18); this.allocation.setTriangle(9, index16, index18, this.allocation.getVertexIndex(19));
-	this.allocation.setTriangle(10, index20, this.allocation.getVertexIndex(21), index22); this.allocation.setTriangle(11, index20, index22, this.allocation.getVertexIndex(23));
+	this.allocation.setTriangle(4, index8, index10, this.allocation.getVertexIndex(9)); this.allocation.setTriangle(5, index8, this.allocation.getVertexIndex(11), index10);
+	this.allocation.setTriangle(6, index12, index14, this.allocation.getVertexIndex(13)); this.allocation.setTriangle(7, index12, this.allocation.getVertexIndex(15), index14);
+	this.allocation.setTriangle(8, index16, index18, this.allocation.getVertexIndex(17)); this.allocation.setTriangle(9, index16, this.allocation.getVertexIndex(19), index18);
+	this.allocation.setTriangle(10, index20, index22, this.allocation.getVertexIndex(21)); this.allocation.setTriangle(11, index20, this.allocation.getVertexIndex(23), index22);
 	var aU0 = this.texture.getAbsoluteU(0);
 	var aU1 = this.texture.getAbsoluteU(1);
 	var aV0 = this.texture.getAbsoluteV(0);
@@ -1087,7 +1087,7 @@ function TextureMap(parameters)
 	var missingImageData = missingContext.createImageData(4, 4);
 	for(var x = 0; x < missingImageData.width; x++)
 		for(var y = 0; y < missingImageData.height; y++)
-			missingImageData.data.set((x / 2 == Math.floor(x / 2)) != (y / 2 == Math.floor(y / 2)) ? [ 132, 0, 92, 255 ] : [ 0, 0, 0, 255 ], (x + y * missingImageData.width) * 4);
+			missingImageData.data.set([ Math.max(0, (x + 1) * 64 - 1), Math.max(0, (y + 1) * 64 - 1), Math.max(0, (x + y * missingImageData.width + 1) * 16 - 1), 255 ], (x + y * missingImageData.width) * 4);
 	missingContext.putImageData(missingImageData, 0, 0);
 	this.stitched.src = missingImage.src = missingCanvas.toDataURL();
 	this.stitched.addEventListener("load", this.onStichedLoad = wrapFunction(function onStitchedTextureMapLoad()
@@ -1818,6 +1818,8 @@ Object.defineProperty(WebGLRenderer.prototype, "setup", { value: function setup(
 	this.gl.clearDepth(1);
 	this.gl.enable(this.gl.DEPTH_TEST);
 	this.gl.depthFunc(this.gl.LEQUAL);
+	this.gl.enable(this.gl.CULL_FACE);
+	this.gl.cullFace(this.gl.FRONT);
 } });
 Object.defineProperty(WebGLRenderer.prototype, "requestShaders", { value: function requestShaders(name)
 {
@@ -1850,6 +1852,8 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 		this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, this.textureMap.stitched);
 		this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
 		this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+		this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+		this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
 		this.gl.generateMipmap(this.gl.TEXTURE_2D);
 		this.gl.activeTexture(this.gl.TEXTURE0);
 		this.textureMap.modified = false;
