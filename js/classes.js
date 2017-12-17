@@ -2761,6 +2761,7 @@ function Game(parameters)
 	this.addEventListener("contextmenu", wrapEventListener(function preventContextMenu(preventDefault) { return true; }, this));
 	this.addEventListener("click", function requestPointerLockOnElement()
 	{
-		this.element.requestPointerLock();
+		if(this.element.requestPointerLock)
+			this.element.requestPointerLock();
 	});
 }
