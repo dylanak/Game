@@ -1314,6 +1314,7 @@ Object.defineProperty(VertexBufferAllocation.prototype, "setTriangle", { value: 
 		this.buffer.triangles[index] = cornerVertex0;
 		this.buffer.triangles[index + 1] = cornerVertex1;
 		this.buffer.triangles[index + 2] = cornerVertex2;
+		this.buffer.triangles.modified = true;
 	}
 	return index;
 } });
@@ -1367,7 +1368,10 @@ Object.defineProperty(VertexBuffer.prototype, "allocate", { value: function allo
 	this.uvs.glBuffer = uvBuffer;
 	this.normals = normals;
 	this.normals.glBuffer = normalBuffer;
-	this.triangles = new Uint16Array(Array.from(this.triangles).concat(new Array(triangleCount * 3).fill(0)));
+	var triangleBuffer = this.triangles.glBuffer;
+	var triangles = this.triangles instanceof Uint16Array ? Array.from(this.triangles) : this.triangles;
+	this.triangles = triangles.concat(new Array(triangleCount * 3).fill(0));
+	this.triangles.glBuffer = triangleBuffer;
 	var allocation = new VertexBufferAllocation(this, this.allocations.length, vertexRanges, [ this.triangles.length / 3 - triangleCount, this.triangles.length / 3 ]);
 	this.allocations.push(allocation);
 	return allocation;
@@ -2098,6 +2102,13 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 					normals.glBuffer = glBuffer;
 					normals.modified = true;
 				}
+				if(!(layer.vertexBuffer.triangles instanceof Uint16Array))
+				{
+					var glBuffer = layer.vertexBuffer.triangles.glBuffer || this.gl.createBuffer();
+					var triangles = layer.vertexBuffer.triangles = new Uint16Array(layer.vertexBuffer.triangles);
+					triangles.glBuffer = glBuffer;
+					triangles.modified = true;
+				}
 				if(layer.vertexBuffer.vertices.modified)
 				{
 					this.gl.bindBuffer(this.gl.ARRAY_BUFFER, layer.vertexBuffer.vertices.glBuffer);
@@ -2105,16 +2116,24 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 					layer.vertexBuffer.vertices.modified = false;
 				}
 				if(layer.vertexBuffer.uvs.modified)
-				{	
+				{
+					this.gl.bindBuffer(this.gl.ARRAY_BUFFER, layer.vertexBuffer.uvs.glBuffer);
+					this.gl.bufferData(this.gl.ARRAY_BUFFER, layer.vertexBuffer.uvs, this.gl.STATIC_DRAW);
 					layer.vertexBuffer.uvs.modified = false;
 				}
 				if(layer.vertexBuffer.normals.modified)
 				{
+					this.gl.bindBuffer(this.gl.ARRAY_BUFFER, layer.vertexBuffer.normals.glBuffer);
+					this.gl.bufferData(this.gl.ARRAY_BUFFER, layer.vertexBuffer.normals, this.gl.STATIC_DRAW);
 					layer.vertexBuffer.normals.modified = false;
 				}
-				var indexBuffer = this.gl.createBuffer();
-				this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-				this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, layer.vertexBuffer.triangles, this.gl.STATIC_DRAW);
+				if(layer.vertexBuffer.triangles.modified)
+				{
+					this.triangleBufferBound = true;
+					this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, layer.vertexBuffer.triangles.glBuffer);
+					this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, layer.vertexBuffer.triangles, this.gl.STATIC_DRAW);
+					layer.vertexBuffer.triangles.modified = false;
+				}
 				this.gl.useProgram(this.shaders.program);
 				var aIntensity = layer.lighting.ambient.intensity;
 				var aColor = layer.lighting.ambient.color;
@@ -2142,7 +2161,8 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 					layer.modelView.matrix.modified = false;
 				}
 				this.gl.uniform1i(this.shaders.uniforms.uSampler, 0);
-				this.gl.drawElements(this.gl.TRIANGLES, layer.vertexBuffer.triangles.length, this.gl.UNSIGNED_SHORT, 0);
+				if(this.triangleBufferBound)
+					this.gl.drawElements(this.gl.TRIANGLES, layer.vertexBuffer.triangles.length, this.gl.UNSIGNED_SHORT, 0);
 			}, this);
 			return true;
 		}
