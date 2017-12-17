@@ -2529,14 +2529,17 @@ Game.prototype.constructor = Game;
 Object.defineProperty(Game.prototype, "onElementDelete", { value: function onElementDelete()
 {
 	callSuper(this, "onElementDelete");
-	if(this.element.requestFullscreen == this.element.webkitRequestFullscreen || this.element.requestFullscreen == this.element.mozRequestFullscreen)
+	if(this.element.requestFullscreen == this.element.webkitRequestFullscreen || this.element.requestFullscreen == this.element.mozRequestFullScreen || this.element.requestFullscreen == this.element.msRequestFullscreen)
 		delete this.element.requestFullscreen;
+	if(this.element.requestPointerLock == this.element.webkitRequestPointerLock || this.element.requestPointerLock == this.element.mozRequestPointerLock)
+		delete this.element.requestPointerLock;
 	this.renderer.element = this.controls.element = undefined;
 } });
 Object.defineProperty(Game.prototype, "onElementSet", { value: function onElementSet()
 {
 	callSuper(this, "onElementSet");
-	this.element.requestFullscreen = this.element.requestFullscreen || this.element.webkitRequestFullscreen || this.element.mozRequestFullscreen;
+	this.element.requestFullscreen = this.element.requestFullscreen || this.element.webkitRequestFullscreen || this.element.mozRequestFullScreen || this.element.msRequestFullscreen;
+	this.element.requestPointerLock = this.element.requestPointerLock || this.element.webkitRequestPointerLock || this.element.mozRequestPointerLock;
 	this.renderer.element = this.controls.element = this.element;
 } });
 Object.defineProperty(Game.prototype, "pushUpdateRequest", { value: function pushUpdateRequest(request)
@@ -2616,4 +2619,8 @@ function Game(parameters)
 	window.addEventListener("beforeunload", this.unloadWrapper = wrapFunction(this.unload, this));
 	ElementEventListener.call(this, parameters);
 	this.addEventListener("contextmenu", wrapEventListener(function preventContextMenu(preventDefault) { return true; }, this));
+	this.addEventListener("click", function requestPointerLockOnElement()
+	{
+		this.element.requestPointerLock();
+	});
 }
