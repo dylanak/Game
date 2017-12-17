@@ -133,14 +133,14 @@ function wrapFunction(func, thisArg)
 
 function wrapEventListener(func, thisArg)
 {
-	var argStrings = Array.from(arguments);
+	var argStrings = Array.from(arguments).slice(2);
 	return function callWrappedEventListener(event)
 	{
 		event = event || window.event;
 		var ret = func.apply(thisArg, argStrings.map(function propertyWithName(name)
 		{
 			return event[name];
-		}).slice(2));
+		}));
 		if(ret)
 			event.preventDefault();
 	};
@@ -1480,6 +1480,12 @@ Object.defineProperty(Control.prototype, "addControllers", { value: function add
 } });
 Object.defineProperty(Control.prototype, "reset", { value: function reset()
 {
+	this.mouseControllers.forEach(function deactivateMouseController(controller)
+	{
+		var controller = this.controls.controllers["mouse." + controller];
+		if(controller)
+			constroller.splice(controller.indexOf(this), 1);
+	}, this);
 	this.keyboardControllers.forEach(function deactivateKeyboardController(controller)
 	{ 
 		var controller = this.controls.controllers["keyboard." + controller];
@@ -1491,6 +1497,13 @@ Object.defineProperty(Control.prototype, "reset", { value: function reset()
 		var controller = this.controls.controllers["gamepad." + controller];
 		if(controller)
 			controller.splice(controller.indexOf(this), 1);
+	}, this);
+	this.defaultMouseControllers.forEach(function activateMouseController(controller)
+	{
+		var controllerName = "mouse." + controller;
+		if(!this.controls.controllers[controllerName])
+			this.controls.controllers[controllerName] = [ ];
+		this.controls.controllers[controllerName].push(this);
 	}, this);
 	this.defaultKeyboardControllers.forEach(function activateKeyboardController(controller)
 	{
@@ -1506,20 +1519,24 @@ Object.defineProperty(Control.prototype, "reset", { value: function reset()
 			this.controls.controllers[controllerName] = [ ];
 		this.controls.controllers[controllerName].push(this);
 	}, this);
+	this.mouseControllers = Array.from(this.defaultMouseControllers);
 	this.keyboardControllers = Array.from(this.defaultKeyboardControllers);
 	this.gamepadControllers = Array.from(this.defaultGamepadControllers);
 } });
 
-function Control(controls, name, func, type, keyboardControllerFilter, gamepadControllerFilter, defaultKeyboardControllers, defaultGamepadControllers)
+function Control(controls, name, func, type, mouseControllerFilter, keyboardControllerFilter, gamepadControllerFilter, defaultMouseControllers, defaultKeyboardControllers, defaultGamepadControllers)
 {
 	this.controls = controls;
 	this.name = name;
 	this.func = func;
 	this.type = type;
+	this.mouseControllerFilter = mouseControllerFilter || alwaysFalse;
 	this.keyboardControllerFilter = keyboardControllerFilter || alwaysFalse;
 	this.gamepadControllerFilter = gamepadControllerFilter || alwaysFalse;
+	this.defaultMouseControllers = Array.from(defaultMouseControllers);
 	this.defaultKeyboardControllers = Array.from(defaultKeyboardControllers);
 	this.defaultGamepadControllers = Array.from(defaultGamepadControllers);
+	this.mouseControllers = [ ];
 	this.keyboardControllers = [ ];
 	this.gamepadControllers = [ ];
 	this.reset();
@@ -1527,6 +1544,10 @@ function Control(controls, name, func, type, keyboardControllerFilter, gamepadCo
 
 Mouse.prototype = Object.create(ElementFocusEventListener.prototype);
 Mouse.prototype.constructor = Mouse;
+Object.defineProperty(Mouse, "movementFilter", { value: function isMouseMovement(controller)
+{
+	return controller == "movement";
+} });
 Object.defineProperty(Mouse, "buttonFilter", { value: function isMouseButton(controller)
 {
 	return controller.startsWith("button");
@@ -1535,13 +1556,107 @@ Object.defineProperty(Mouse, "wheelFilter", { value: function isMouseWheel(contr
 {
 	return controller == "wheel";
 } });
+Object.defineProperty(Mouse.prototype, "onButtonDown", { value: function onButtonDown(button)
+{
+	if(this.focused)
+	{
+		var buttonArray = this.buttonArrays[button];
+		if(!buttonArray)
+			buttonArray = this.buttonArrays[button] = [ ];
+		var params;
+		if(buttonArray.length == 0 || buttonArray[keyArray.length - 1].time < Infinity)
+		{
+			params = { };
+			buttonArray.push(this.timestamps.push(new Timestamp(params, Date.now(), Infinity)) - 1);
+		}
+		this.controls.getControls("mouse.button" + button).forEach(function processControl(control)
+		{
+			switch(control.type)
+			{
+				case 1:
+				{
+					var instaFuncParams = { };
+					instaFuncParams.setPropertyAt("mouse." + control.name, true);
+					control.func(instaFuncParams);
+					break;
+				}
+				case 2:
+				{
+					if(params)
+						params.setPropertyAt("mouse." + control.name, true);
+					break;
+				}
+			}
+		}, this);
+	}
+} });
+Object.defineProperty(Mouse.prototype, "onButtonUp", { value: function onButtonUp(button)
+{
+	if(this.focused)
+	{
+		var now = Date.now();
+		(this.buttonArrays[button] || [ ]).forEach(function setButtonTimestampToDefinite(index)
+		{
+			var timestamp = this.timestamps[index];
+			if(timestamp && timestamp.time == Infinity)
+				timestamp.time = now - timestamp.fromTime
+		}, this);
+		delete this.buttonArrays[button];
+	}
+} });
 Object.defineProperty(Mouse.prototype, "onMouseMove", { value: function onMouseMove(movementX, movementY)
 {
-	this.mouseInfo.push(new Timestamp({ mouse: { movementX: movementX, movementY: movementY } }, Date.now(), 0));
+	if(this.focused && document.pointerLockElement == this.element)
+	{
+		this.lastMovementTime = this.lastMovementTime || Date.now();
+		this.movementX += movementX;
+		this.movementY += movementY;
+		var movementInfo = [ Math.deg(Math.atan2(movementX, movementY)), Math.hypot(movementX, movementY) ];
+		var instantControlFunctions = { list: [ ] };
+		this.controls.getControls("mouse.movement").forEach(function pushControlFunctionIfInstantControl(control)
+		{
+			if(control.type == 1)
+			{
+				var params;
+				if(instantControlFunctions[control.func])
+					params = instantControlFunctions[control.func];
+				else
+				{
+					instantControlFunctions.list.push(control.func);
+					instantControlFunctions[control.func] = params = { };
+				}
+				params.setPropertyAt("mouse." + control.name, movementInfo);
+				control.func(params);
+			}
+		});
+		instantControlFunctions.list.forEach(function callInstantControlFunction(instantControlFunction)
+		{
+			instantControlFunction(instantControlFunctions[instantControlFunction]);
+		});
+	}
+} });
+Object.defineProperty(Mouse.prototype, "update", { value: function update(last, now)
+{
+	if(this.lastMovementTime && (this.movementX || this.movementY))
+	{
+		var params = { };
+		var movementInfo = [ Math.deg(Math.atan2(this.movementX, this.movementY)), Math.hypot(this.movementX, this.movementY) ];
+		this.controls.getControls("mouse.movement").forEach(function setControlRotaryParameter(control)
+		{
+			if(control.type == 2)
+				params.setPropertyAt("mouse." + control.name, movementInfo);
+		});
+		this.timestamps.push(new Timestamp(params, this.lastMovementTime, now - this.lastMovementTime));
+		this.lastMovementTime = NaN;
+		this.movementX = this.movementY = 0;
+	}
 } });
 Object.defineProperty(Mouse.prototype, "reset", { value: function reset()
 {
-	this.mouseInfo = [ ];
+	this.lastMovementTime = NaN;
+	this.movementX = this.movementY = 0;
+	this.timestamps = [ ];
+	this.buttonArrays = { };
 } });
 
 function Mouse(parameters)
@@ -1550,6 +1665,8 @@ function Mouse(parameters)
 	ElementFocusEventListener.call(this, parameters);
 	if(parameters.controls instanceof Controls)
 		this.controls = parameters.controls;
+	this.addEventListener("mousedown", wrapEventListener(this.onButtonDown, this, "button"));
+	this.addEventListener("mouseup", wrapEventListener(this.onButtonUp, this, "button"));
 	this.addEventListener("mousemove", wrapEventListener(this.onMouseMove, this, "movementX", "movementY"));
 }
 
@@ -1590,7 +1707,9 @@ Object.defineProperty(Keyboard.prototype, "onKeyDown", { value: function onKeyDo
 			{
 				case 1:
 				{
-					control.func("keyboard", key);
+					var instaFuncParams = { };
+					instaFuncParams.setPropertyAt("keyboard." + control.name, true);
+					control.func(instaFuncParams);
 					break;
 				}
 				case 2:
@@ -1612,7 +1731,7 @@ Object.defineProperty(Keyboard.prototype, "onKeyUp", { value: function onKeyUp(k
 	if(this.focused)
 	{
 		var now = Date.now();
-		this.keyArrays[key].forEach(function setKeyTimestampToDefinite(index)
+		(this.keyArrays[key] || [ ]).forEach(function setKeyTimestampToDefinite(index)
 		{
 			var timestamp = this.timestamps[index];
 			if(timestamp && timestamp.time == Infinity)
@@ -1670,7 +1789,7 @@ Object.defineProperty(Gamepad.prototype, "update", { value: function update(last
 					var controller = "analog" + j;
 					if(analogX != 0 || analogY != 0)
 					{
-						var analogInfo = [ Math.deg(Math.atan2(analogX, analogY)), Math.min(Math.hypot(analogX, analogY), 1) ];
+						var analogInfo = [ Math.deg(Math.atan2(analogX, analogY)), Math.hypot(analogX, analogY) ];
 						this.controls.getControls("gamepad." + controller).forEach(function setControlRotaryParameter(control)
 						{
 							params.setPropertyAt("gamepad." + control.name, analogInfo);
@@ -1716,9 +1835,9 @@ Object.defineProperty(Controls.prototype, "onElementSet", { value: function onEl
 	callSuper(this, "onElementSet");
 	this.keyboard.element = this.mouse.element = this.gamepad.element = this.element;
 } });
-Object.defineProperty(Controls.prototype, "addControl", { value: function addControl(name, func, type, keyboardControllerFilter, gamepadControllerFilter, defaultKeyboardControllers, defaultGamepadControllers)
+Object.defineProperty(Controls.prototype, "addControl", { value: function addControl(name, func, type, mouseControllerFilter, keyboardControllerFilter, gamepadControllerFilter, defaultMouseControllers, defaultKeyboardControllers, defaultGamepadControllers)
 {
-	var control = this.controls[name] = new Control(this, name, func, type, keyboardControllerFilter, gamepadControllerFilter, defaultKeyboardControllers, defaultGamepadControllers);
+	var control = this.controls[name] = new Control(this, name, func, type, mouseControllerFilter, keyboardControllerFilter, gamepadControllerFilter, defaultMouseControllers, defaultKeyboardControllers, defaultGamepadControllers);
 	if(type == 2)
 		this.addControlsLoopFunc(func);
 } });
@@ -1761,6 +1880,7 @@ Object.defineProperty(Controls.prototype, "controlsLoop", { value: function cont
 {
 	var now = Date.now();
 	controls.bindingFuncLoopTimeout = setTimeout(controls.controlsLoop, 0, controls);
+	controls.mouse.update(controls.lastControlsLoop || now, now);
 	controls.gamepad.update(controls.lastControlsLoop || now, now);
 	var timestamps = Timestamp.splitAll.apply(null, function processControlTimestamps()
 	{	
@@ -1784,7 +1904,7 @@ Object.defineProperty(Controls.prototype, "controlsLoop", { value: function cont
 			});
 		});
 		return timestamps;
-	}(controls.keyboard.timestamps, controls.gamepad.timestamps));
+	}(controls.mouse.timestamps, controls.keyboard.timestamps, controls.gamepad.timestamps));
 	for(var i = 1; i < controls.controlsLoopFuncs.length; i++)
 		controls.controlsLoopFuncs[i](timestamps, controls.lastControlsLoop, now);
 	controls.lastControlsLoop = now;
@@ -1798,7 +1918,7 @@ function Controls(parameters)
 {
 	parameters = parameters || { };
 	this.game = parameters.game;
-	this.nullControl = new Control(this, "null", emptyFunction, 0, undefined, undefined, [ ], [ ]);
+	this.nullControl = new Control(this, "null", emptyFunction, 0, undefined, undefined, undefined, [ ], [ ], [ ]);
 	this.controls = { };
 	this.controllers = { };
 	this.controlsLoopFuncs = [ [ ] ];
@@ -2445,22 +2565,42 @@ Object.defineProperty(Player.prototype, "updateCameraPosition", { value: functio
 {
 	this.camera.position.set(this.position.copy().add(this.headOffset));
 } });
+Object.defineProperty(Player.prototype, "instantControls", { value: function instantControls(params)
+{
+	var mouse = params.mouse;
+	var lookAngle = NaN;
+	var lookDistance = 0;
+	if(mouse.instalook)
+	{
+		lookAngle = averageDegrees(lookAngle, mouse.instalook.horizontal ? degreesReflectionX(mouse.instalook.horizontal[0]) : NaN);
+		lookDistance = mouse.instalook.horizontal ? Math.max(Math.min(mouse.instalook.horizontal[1], 2), lookDistance) : lookDistance;
+	}
+	if(!isNaN(lookAngle))
+	{
+		this.camera.rotation[0] = Math.max(Math.min(this.camera.rotation[0] + Math.cos(Math.rad(lookAngle)) * lookDistance, 90), -90);
+		this.camera.rotation[1] += Math.sin(Math.rad(lookAngle)) * lookDistance;
+	}
+} });
 Object.defineProperty(Player.prototype, "controlsLoop", { value: function controlsLoop(timestamps, last, now)
 {
 	timestamps.forEach(function timeBasedMove(timestamp)
 	{
 		var positionOffset = [ 0, 0, 0 ];
+		var mouse = timestamp.params.mouse || { };
 		var keyboard = timestamp.params.keyboard || { };
 		var gamepad = timestamp.params.gamepad || { };
 		var lookAngle = NaN;
-		var lookDistance = 1;
+		var lookDistance = 0;
 		if(keyboard.look)
+		{
 			lookAngle = averageDegrees(lookAngle, averageDegrees(averageDegrees(keyboard.look.downwards ? 180 : NaN, keyboard.look.upwards ? 0 : NaN), averageDegrees(keyboard.look.leftwards ? -90 : NaN, keyboard.look.rightwards ? 90 : NaN)));
+			lookDistance = 1;
+		}
 		if(gamepad.look)
 		{
 			lookAngle = averageDegrees(lookAngle, averageDegrees(averageDegrees(gamepad.look.downwards ? 180 : NaN, gamepad.look.upwards ? 0 : NaN), averageDegrees(gamepad.look.leftwards ? -90 : NaN, gamepad.look.rightwards ? 90 : NaN)));
 			lookAngle = averageDegrees(lookAngle, gamepad.look.horizontal ? gamepad.look.horizontal[0] : NaN);
-			lookDistance = gamepad.look.horizontal ? gamepad.look.horizontal[1] : lookDistance;
+			lookDistance = gamepad.look.horizontal ? Math.max(Math.min(gamepad.look.horizontal[1], 1), lookDistance) : lookDistance;
 		}
 		if(!isNaN(lookAngle))
 		{

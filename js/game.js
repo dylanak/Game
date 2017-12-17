@@ -15,11 +15,13 @@ requestText("resources/directory.json", function(text)
 		var name = entry[0];
 		var func = new Function(entry[1].function).call(game);
 		var type = entry[1].type;
+		var mouseControllerFilter = new Function(entry[1].filters.mouse).call(game);
 		var keyboardControllerFilter = new Function(entry[1].filters.keyboard).call(game);
 		var gamepadControllerFilter = new Function(entry[1].filters.gamepad).call(game);
+		var mouseControllers = entry[1].controllers.mouse || [ ];
 		var keyboardControllers = entry[1].controllers.keyboard || [ ];
 		var gamepadControllers = entry[1].controllers.gamepad || [ ];
-		game.controls.addControl(name, func, type, keyboardControllerFilter, gamepadControllerFilter, keyboardControllers, gamepadControllers);
+		game.controls.addControl(name, func, type, mouseControllerFilter, keyboardControllerFilter, gamepadControllerFilter, mouseControllers, keyboardControllers, gamepadControllers);
 	});
 	var geometry = new RectangularPrismGeometry(game.level, { game: game, position: { z: -6 }, width: 1, height: 1, render: true });
 });
