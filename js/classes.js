@@ -83,6 +83,16 @@ function isPowerOfTwo(value)
 	return (value & (value - 1)) == 0;
 }
 
+function degreesReflectionX(degrees)
+{
+	return (degrees / Math.abs(degrees)) * (180 - Math.abs(degrees));
+}
+
+function degreesReflectionY(degrees)
+{
+	return wrapDegrees(-degrees);
+}
+
 function wrapDegrees(degrees)
 {
 	return (degrees + 180) % 360 == degrees + 180 ? degrees : degrees - (Math.floor((degrees + 180) / 360) * 360);
@@ -91,6 +101,26 @@ function wrapDegrees(degrees)
 function averageDegrees(a, b)
 {
 	return isNaN(a) ? b : isNaN(b) ? a : wrapDegrees((a = wrapDegrees(a)) + 180) == (b = wrapDegrees(b)) ? NaN : (((a == -180 ? 180 * Math.abs(b) / b : a) + (b == -180 ? 180 * Math.abs(a) / a : b) + 720) / 2) - 360;
+}
+
+function radiansReflectionX(radians)
+{
+	return (radians / Math.abs(radians)) * (Math.PI - Math.abs(radians));
+}
+
+function radiansReflectionY(radians)
+{
+	return wrapRadians(-radians);
+}
+
+function wrapRadians(radians)
+{
+	return (radians + Math.PI) % Math.PI2 == radians + Math.PI ? radians : radians - (Math.floor((radians + Math.PI) / Math.PI2) * Math.PI2);
+}
+
+function averageRadians(a, b)
+{
+	return isNaN(a) ? b : isNaN(b) ? a : wrapRadians((a = wrapRadians(a)) + Math.PI) == (b = wrapRadians(b)) ? NaN : (((a == -Math.PI ? Math.PI * Math.abs(b) / b : a) + (b == -Math.PI ? Math.PI * Math.abs(a) / Math.PI : b) + Math.PI * 4) / 2) - Math.PI2;
 }
 
 function wrapFunction(func, thisArg)
