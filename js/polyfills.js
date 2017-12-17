@@ -1,3 +1,5 @@
+Object.defineProperty(Math, "HALFPI", { value: Math.PI / 2 });
+Object.defineProperty(Math, "PI2", { value: Math.PI * 2 });
 Object.defineProperty(Math, "DTR", { value: Math.PI / 180 });
 Object.defineProperty(Math, "RTD", { value: 180 / Math.PI });
 Array.forEach = function(arrayLike, callback, thisArg)
