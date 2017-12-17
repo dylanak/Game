@@ -2,10 +2,24 @@ Object.defineProperty(Math, "HALFPI", { value: Math.PI / 2 });
 Object.defineProperty(Math, "PI2", { value: Math.PI * 2 });
 Object.defineProperty(Math, "DTR", { value: Math.PI / 180 });
 Object.defineProperty(Math, "RTD", { value: 180 / Math.PI });
+Array.concat = function()
+{
+	var ret = [ ];
+	Array.forEach(arguments, function(arrayLike)
+	{
+		Array.forEach(arrayLike, function()
+		{
+			ret[ret.length] = arrayLike;
+		});
+	});
+	return ret;
+}
+
 Array.forEach = function(arrayLike, callback, thisArg)
 {
 	for(var i = 0; i < arrayLike.length; i++)
-		callback.call(thisArg, arrayLike[i], i, arrayLike);
+		if(arrayLike[i] == undefined)
+			callback.call(thisArg, arrayLike[i], i, arrayLike);
 }
 Array.map = function(arrayLike, callback, thisArg)
 {
