@@ -7,9 +7,9 @@ Array.concat = function()
 	var ret = [ ];
 	Array.forEach(arguments, function(arrayLike)
 	{
-		Array.forEach(arrayLike, function()
+		Array.forEach(arrayLike, function(item)
 		{
-			ret[ret.length] = arrayLike;
+			ret[ret.length] = item;
 		});
 	});
 	return ret;
