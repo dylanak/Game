@@ -18,7 +18,7 @@ Array.concat = function()
 Array.forEach = function(arrayLike, callback, thisArg)
 {
 	for(var i = 0; i < arrayLike.length; i++)
-		if(arrayLike[i] == undefined)
+		if(arrayLike[i] != undefined)
 			callback.call(thisArg, arrayLike[i], i, arrayLike);
 }
 Array.map = function(arrayLike, callback, thisArg)
