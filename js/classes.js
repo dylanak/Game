@@ -1546,7 +1546,7 @@ function Control(controls, name, func, type, mouseControllerFilter, keyboardCont
 	this.reset();
 }
 
-Mouse.prototype = Object.create(ElementFocusEventListener.prototype);
+Mouse.prototype = Object.create(ElementEventListener.prototype);
 Mouse.prototype.constructor = Mouse;
 Object.defineProperty(Mouse, "movementFilter", { value: function isMouseMovement(controller)
 {
@@ -1562,7 +1562,7 @@ Object.defineProperty(Mouse, "wheelFilter", { value: function isMouseWheel(contr
 } });
 Object.defineProperty(Mouse.prototype, "onButtonDown", { value: function onButtonDown(button)
 {
-	if(this.focused)
+	if(this.controls.focused)
 	{
 		var buttonArray = this.buttonArrays[button];
 		if(!buttonArray)
@@ -1596,7 +1596,7 @@ Object.defineProperty(Mouse.prototype, "onButtonDown", { value: function onButto
 } });
 Object.defineProperty(Mouse.prototype, "onButtonUp", { value: function onButtonUp(button)
 {
-	if(this.focused)
+	if(this.controls.focused)
 	{
 		var now = Date.now();
 		(this.buttonArrays[button] || [ ]).forEach(function setButtonTimestampToDefinite(index)
@@ -1610,7 +1610,7 @@ Object.defineProperty(Mouse.prototype, "onButtonUp", { value: function onButtonU
 } });
 Object.defineProperty(Mouse.prototype, "onMouseMove", { value: function onMouseMove(movementX, movementY)
 {
-	if(this.focused && document.pointerLockElement == this.element)
+	if(this.controls.focused)
 	{
 		this.lastMovementTime = this.lastMovementTime || Date.now();
 		this.movementX += movementX;
@@ -1666,7 +1666,7 @@ Object.defineProperty(Mouse.prototype, "reset", { value: function reset()
 function Mouse(parameters)
 {
 	parameters = parameters || { };
-	ElementFocusEventListener.call(this, parameters);
+	ElementEventListener.call(this, parameters);
 	if(parameters.controls instanceof Controls)
 		this.controls = parameters.controls;
 	this.addEventListener("mousedown", wrapEventListener(this.onButtonDown, this, "button"));
@@ -1674,7 +1674,7 @@ function Mouse(parameters)
 	this.addEventListener("mousemove", wrapEventListener(this.onMouseMove, this, "movementX", "movementY"));
 }
 
-Keyboard.prototype = Object.create(ElementFocusEventListener.prototype);
+Keyboard.prototype = Object.create(ElementEventListener.prototype);
 Keyboard.prototype.constructor = Keyboard;
 Object.defineProperty(Keyboard, "keyFilter", { value: function isKeyboardKey(controller)
 {
@@ -1694,7 +1694,7 @@ Object.defineProperty(Keyboard.prototype, "processKeyDown", { value: function pr
 } });
 Object.defineProperty(Keyboard.prototype, "onKeyDown", { value: function onKeyDown(key)
 {
-	if(this.focused)
+	if(this.controls.focused)
 	{
 		var keyArray = this.keyArrays[key];
 		if(!keyArray)
@@ -1732,7 +1732,7 @@ Object.defineProperty(Keyboard.prototype, "processKeyUp", { value: function proc
 } });
 Object.defineProperty(Keyboard.prototype, "onKeyUp", { value: function onKeyUp(key)
 {
-	if(this.focused)
+	if(this.controls.focused)
 	{
 		var now = Date.now();
 		(this.keyArrays[key] || [ ]).forEach(function setKeyTimestampToDefinite(index)
@@ -1753,7 +1753,7 @@ Object.defineProperty(Keyboard.prototype, "reset", { value: function reset()
 function Keyboard(parameters)
 {
 	parameters = parameters || { };
-	ElementFocusEventListener.call(this, parameters);
+	ElementEventListener.call(this, parameters);
 	if(parameters.controls instanceof Controls)
 		this.controls = parameters.controls;
 	this.addEventListener("keydown", wrapEventListener(this.processKeyDown, this, "key"));
@@ -1772,49 +1772,46 @@ Object.defineProperty(Gamepad, "analogFilter", { value: function isGamepadAnalog
 } });
 Object.defineProperty(Gamepad.prototype, "update", { value: function update(last, now)
 {
-	if(this.focused)
+	var gamepads = navigator.getGamepads();
+	for(var i = 0; i < gamepads.length; i++)
 	{
-		var gamepads = navigator.getGamepads();
-		for(var i = 0; i < gamepads.length; i++)
+		var gamepad = gamepads[i];
+		if(gamepad)
 		{
-			var gamepad = gamepads[i];
-			if(gamepad)
+			var params = { };
+			for(var j = 0; j < Math.floor(gamepad.axes.length / 2); j++)
 			{
-				var params = { };
-				for(var j = 0; j < Math.floor(gamepad.axes.length / 2); j++)
+				var analogX = gamepad.axes[j * 2];
+				var analogY = -gamepad.axes[(j * 2) + 1];
+				var deadZone = this.controls.game.options.controls.gamepad.deadZone;
+				if(Math.abs(analogX) < deadZone)
+					analogX = 0;
+				if(Math.abs(analogY) < deadZone)
+					analogY = 0;
+				var controller = "analog" + j;
+				if(analogX != 0 || analogY != 0)
 				{
-					var analogX = gamepad.axes[j * 2];
-					var analogY = -gamepad.axes[(j * 2) + 1];
-					var deadZone = this.controls.game.options.controls.gamepad.deadZone;
-					if(Math.abs(analogX) < deadZone)
-						analogX = 0;
-					if(Math.abs(analogY) < deadZone)
-						analogY = 0;
-					var controller = "analog" + j;
-					if(analogX != 0 || analogY != 0)
+					var analogInfo = [ Math.deg(Math.atan2(analogX, analogY)), Math.hypot(analogX, analogY) ];
+					this.controls.getControls("gamepad." + controller).forEach(function setControlRotaryParameter(control)
 					{
-						var analogInfo = [ Math.deg(Math.atan2(analogX, analogY)), Math.hypot(analogX, analogY) ];
-						this.controls.getControls("gamepad." + controller).forEach(function setControlRotaryParameter(control)
-						{
-							params.setPropertyAt("gamepad." + control.name, analogInfo);
-						});
-					}
+						params.setPropertyAt("gamepad." + control.name, analogInfo);
+					});
 				}
-				for(var j = 0; j < gamepad.buttons.length; j++)
-				{
-					var buttonPressed = gamepad.buttons[j].pressed;
-					var controller = "button" + j;
-					if(buttonPressed)
-					{
-						this.controls.getControls("gamepad." + controller).forEach(function setControlButtonParameter(control)
-						{
-							params.setPropertyAt("gamepad." + control.name, true);
-						}, this);
-					}
-				}
-				if(Object.entries(params).length > 0)
-					this.timestamps.push(new Timestamp(params, last, now - last));
 			}
+			for(var j = 0; j < gamepad.buttons.length; j++)
+			{
+				var buttonPressed = gamepad.buttons[j].pressed;
+				var controller = "button" + j;
+				if(buttonPressed)
+				{
+					this.controls.getControls("gamepad." + controller).forEach(function setControlButtonParameter(control)
+					{
+						params.setPropertyAt("gamepad." + control.name, true);
+					}, this);
+				}
+			}
+			if(Object.entries(params).length > 0)
+				this.timestamps.push(new Timestamp(params, last, now - last));
 		}
 	}
 } });
@@ -1829,6 +1826,10 @@ function Gamepad(parameters)
 
 Controls.prototype = Object.create(ElementEventListener.prototype);
 Controls.prototype.constructor = Controls;
+Object.defineProperty(Controls.prototype, "focused", { get: function isFocused()
+{
+	return this.element && document.hasFocus() && document.activeElement == this.element && (!this.pointerLockRequired || document.pointerLockElement == this.element);
+} });
 Object.defineProperty(Controls.prototype, "onElementDelete", { value: function onElementDelete()
 {
 	callSuper(this, "onElementDelete");
@@ -1876,42 +1877,45 @@ Object.defineProperty(Controls.prototype, "startControlsLoop", { value: function
 {
 	this.controlsLoopTimeout = setTimeout(this.controlsLoop, 0, this);
 } });
-Object.defineProperty(Controls.prototype, "endControlsLoop", { value: function endControlsLoop()
+Object.defineProperty(Controls.prototype, "stopControlsLoop", { value: function stopControlsLoop()
 {
 	clearTimeout(this.controlsLoopTimeout);
 } });
 Object.defineProperty(Controls.prototype, "controlsLoop", { value: function controlsLoop(controls)
 {
-	var now = Date.now();
-	controls.bindingFuncLoopTimeout = setTimeout(controls.controlsLoop, 0, controls);
-	controls.mouse.update(controls.lastControlsLoop || now, now);
-	controls.gamepad.update(controls.lastControlsLoop || now, now);
-	var timestamps = Timestamp.splitAll.apply(null, function processControlTimestamps()
-	{	
-		var timestamps = [ ];
-		Array.forEach(arguments, function addControlTimestamps(ts)
-		{
-			ts.forEach(function addControlTimestamp(timestamp, index, array)
+	controls.controlsLoopTimeout = setTimeout(controls.controlsLoop, 0, controls);
+	if(controls.focused)
+	{
+		var now = Date.now();
+		controls.mouse.update(controls.lastControlsLoop || now, now);
+		controls.gamepad.update(controls.lastControlsLoop || now, now);
+		var timestamps = Timestamp.splitAll.apply(null, function processControlTimestamps()
+		{	
+			var timestamps = [ ];
+			Array.forEach(arguments, function addControlTimestamps(ts)
 			{
-				if(timestamp.time == Infinity)
+				ts.forEach(function addControlTimestamp(timestamp, index, array)
 				{
-					var newTimestamp = timestamp.copy();
-					newTimestamp.time = now - newTimestamp.fromTime;
-					timestamps.push(newTimestamp);
-					timestamp.fromTime = now;
-				}
-				else
-				{
-					timestamps.push(timestamp);
-					delete array[index];
-				}
+					if(timestamp.time == Infinity)
+					{
+						var newTimestamp = timestamp.copy();
+						newTimestamp.time = now - newTimestamp.fromTime;
+						timestamps.push(newTimestamp);
+						timestamp.fromTime = now;
+					}
+					else
+					{
+						timestamps.push(timestamp);
+						delete array[index];
+					}
+				});
 			});
-		});
-		return timestamps;
-	}(controls.mouse.timestamps, controls.keyboard.timestamps, controls.gamepad.timestamps));
-	for(var i = 1; i < controls.controlsLoopFuncs.length; i++)
-		controls.controlsLoopFuncs[i](timestamps, controls.lastControlsLoop, now);
-	controls.lastControlsLoop = now;
+			return timestamps;
+		}(controls.mouse.timestamps, controls.keyboard.timestamps, controls.gamepad.timestamps));
+		for(var i = 1; i < controls.controlsLoopFuncs.length; i++)
+			controls.controlsLoopFuncs[i](timestamps, controls.lastControlsLoop, now);
+		controls.lastControlsLoop = now;
+	}
 } });
 Object.defineProperty(Controls.prototype, "unload", { value: function unload()
 {
@@ -2568,6 +2572,10 @@ function Layer(parameters)
 	this.projection = parameters.projection instanceof Projection ? parameters.projection : new Projection(parameters.projection);
 	this.modelView = parameters.modelView instanceof ModelView ? parameters.modelView : new ModelView(parameters.modelView);
 	this.lighting = parameters.lighting instanceof Lighting ? parameters.lighting : new Lighting(parameters.lighting);
+	if(!parameters.controls)
+		parameters.controls = { };
+	parameters.controls.game = this.game;
+	this.controls = new Controls(parameters.controls);
 }
 
 Gui.prototype = Object.create(Layer.prototype);
@@ -2680,12 +2688,41 @@ function Level(parameters)
 		parameters.player = { };
 	parameters.player.level = this;
 	this.player = new Player(parameters.player);
+	this.controls.requiresPointerLock = true;
 	this.projection = parameters.projection instanceof PerspectiveProjection ? parameters.projection : new PerspectiveProjection(Object.assign(parameters.projection || { }, { camera: this.player.camera }));
 	this.modelView = parameters.modelView instanceof ModelView ? parameters.modelView : new CameraModelView(Object.assign(parameters.modelView || { }, { camera: this.player.camera }));
 }
 
 Game.prototype = Object.create(ElementEventListener.prototype);
 Game.prototype.constructor = Game;
+Object.defineProperty(Game.prototype, "activeControlsArray", { get: function getActiveControlsArray()
+{
+	return this._activeControlsArray;
+},
+set: function setActiveControlsArray(controlsArray)
+{
+	if(this._activeControlsArray)
+		this._activeControlsArray.forEach(function setActiveControlElementToUndefined(activeControl)
+		{
+			activeControl.stopControlsLoop();
+			activeControl.element = undefined;
+		});
+	this._activeControlsArray = controlsArray || [ ];
+	this._activeControlsArray.forEach(function setActiveControlElementToCurrent(activeControl)
+	{
+		activeControl.element = this.element;
+		activeControl.startControlsLoop();
+	}, this);
+} });
+Object.defineProperty(Game.prototype, "activeControls", { set: function setActiveControls(controls)
+{
+	if(controls instanceof Controls)
+	{
+		this.activeControlsArray.push(controls);
+		controls.element = this.element;
+		controls.startControlsLoop();
+	}
+} });
 Object.defineProperty(Game.prototype, "onElementDelete", { value: function onElementDelete()
 {
 	callSuper(this, "onElementDelete");
@@ -2700,7 +2737,11 @@ Object.defineProperty(Game.prototype, "onElementSet", { value: function onElemen
 	callSuper(this, "onElementSet");
 	this.element.requestFullscreen = this.element.requestFullscreen || this.element.webkitRequestFullscreen || this.element.mozRequestFullScreen || this.element.msRequestFullscreen;
 	this.element.requestPointerLock = this.element.requestPointerLock || this.element.webkitRequestPointerLock || this.element.mozRequestPointerLock;
-	this.renderer.element = this.controls.element = this.element;
+	this.renderer.element = this.element;
+	this.renderer.layers.forEach(function setLayerControlsElement(layer)
+	{
+		layer.controls.element = this.element;
+	}, this);
 } });
 Object.defineProperty(Game.prototype, "pushUpdateRequest", { value: function pushUpdateRequest(request)
 {
@@ -2752,10 +2793,6 @@ function Game(parameters)
 	};
 	this.directory = parameters.directory || { };
 	this.options = { controls: { gamepad: { deadZone: .3 } } };
-	if(!parameters.controls)
-		parameters.controls = { };
-	parameters.controls.game = this;
-	this.controls = new Controls(parameters.controls);
 	if(!parameters.gui)
 		parameters.gui = { };
 	parameters.gui.game = this;
@@ -2764,6 +2801,7 @@ function Game(parameters)
 		parameters.level = { };
 	parameters.level.game = this;
 	this.level = new Level(parameters.level);
+	this.activeControlsArray = [ ];
 	if(parameters.renderer)
 		parameters.renderer.layers = [ this.gui, this.level ].concat(parameters.renderer.layers || [ ]);
 	else
@@ -2774,14 +2812,17 @@ function Game(parameters)
 	this.replaceUpdateRequest = Game.prototype.replaceUpdateRequest;
 	this.pullUpdateRequest = Game.prototype.pullUpdateRequest;
 	window.addEventListener("resize", this.renderer.resizeWrapper);
-	this.controls.startControlsLoop();
-	this.renderer.animate();
 	window.addEventListener("beforeunload", this.unloadWrapper = wrapFunction(this.unload, this));
 	ElementEventListener.call(this, parameters);
 	this.addEventListener("contextmenu", wrapEventListener(function preventContextMenu(preventDefault) { return true; }, this));
 	this.addEventListener("click", function requestPointerLockOnElement()
 	{
-		if(this.element.requestPointerLock)
+		if(this.activeControlsArray.some(function requiresPointerLock(activeControls)
+		{
+			return activeControls.requiresPointerLock;
+		}) &&this.element.requestPointerLock)
 			this.element.requestPointerLock();
 	});
+	this.renderer.animate();
+	this.activeControls = this.level.controls;
 }

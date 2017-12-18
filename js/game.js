@@ -21,7 +21,7 @@ requestText("resources/directory.json", function(text)
 		var mouseControllers = entry[1].controllers.mouse || [ ];
 		var keyboardControllers = entry[1].controllers.keyboard || [ ];
 		var gamepadControllers = entry[1].controllers.gamepad || [ ];
-		game.controls.addControl(name, func, type, mouseControllerFilter, keyboardControllerFilter, gamepadControllerFilter, mouseControllers, keyboardControllers, gamepadControllers);
+		game.level.controls.addControl(name, func, type, mouseControllerFilter, keyboardControllerFilter, gamepadControllerFilter, mouseControllers, keyboardControllers, gamepadControllers);
 	});
 	var geometry = new RectangularPrismGeometry(game.level, { game: game, position: { z: -6 }, width: 1, height: 1, render: true });
 });
