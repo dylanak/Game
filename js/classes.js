@@ -1828,7 +1828,7 @@ Controls.prototype = Object.create(ElementEventListener.prototype);
 Controls.prototype.constructor = Controls;
 Object.defineProperty(Controls.prototype, "focused", { get: function isFocused()
 {
-	return this.element && document.hasFocus() && document.activeElement == this.element && (!this.pointerLockRequired || document.pointerLockElement == this.element);
+	return this.element && document.hasFocus() && document.activeElement == this.element && (!this.requiresPointerLock || document.pointerLockElement == this.element);
 } });
 Object.defineProperty(Controls.prototype, "onElementDelete", { value: function onElementDelete()
 {
@@ -2820,7 +2820,7 @@ function Game(parameters)
 		if(this.activeControlsArray.some(function requiresPointerLock(activeControls)
 		{
 			return activeControls.requiresPointerLock;
-		}) &&this.element.requestPointerLock)
+		}) && this.element.requestPointerLock)
 			this.element.requestPointerLock();
 	});
 	this.renderer.animate();
