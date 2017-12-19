@@ -556,29 +556,41 @@ function RotationVector3(parameters)
 	this.x.callback = this.y.callback = this.z.callback = wrapDegrees;
 }
 
-Color.prototype = Object.create(Watchable);
+Color.prototype = Object.create(Watchable.prototype);
 Color.prototype.constructor = Color;
-Object.defineProperty(Color.prototype, "r", { get: function getR()
+Object.defineProperty(Color, "betweenZeroAndOne", { value: function betweenZeroAndOne(number)
 {
-	return this._r;
+	return Math.max(0, Math.min(1, number || 0));
+} });
+Object.defineProperty(Color.prototype, 0, { get: function getR()
+{
+	return this.r.value;
 }, set: function setR(r)
 {
-	this._r = Math.max(0, Math.min(255, r || 0));
+	this.r.value = r;
 } });
-Object.defineProperty(Color.prototype, "g", { get: function getG()
+Object.defineProperty(Color.prototype, 1, { get: function getG()
 {
-	return this._g;
+	return this.g.value;
 }, set: function setG(g)
 {
-	this._g = Math.max(0, Math.min(255, g || 0));
+	this.g.value = g;
 } });
-Object.defineProperty(Color.prototype, "b", { get: function getB()
+Object.defineProperty(Color.prototype, 2, { get: function getB()
 {
-	return this._b;
+	return this.b.value;
 }, set: function setB(b)
 {
-	this._b = Math.max(0, Math.min(255, b || 0));
+	this.b.value = b;
 } });
+Object.defineProperty(Color.prototype, 3, { get: function getA()
+{
+	return this.a.value;
+}, set: function setA(a)
+{
+	this.a.value = a;
+} });
+Object.defineProperty(Color.prototype, "length", { value: 4 });
 
 function Color(parameters)
 {
@@ -586,16 +598,20 @@ function Color(parameters)
 	Watchable.call(this, parameters);
 	if(Array.isArray(parameters))
 	{
-		this.r = parameters[0];
-		this.g = parameters[1];
-		this.b = parameters[2];
+		this.r = new WatchableValue({ value: parameters[0] });
+		this.g = new WatchableValue({ value: parameters[1] });
+		this.b = new WatchableValue({ value: parameters[2] });
+		this.a = new WatchableValue({ value: parameters[3] });
 	}
 	else
 	{
-		this.r = parameters.r;
-		this.g = parameters.g;
-		this.b = parameters.b;
+		this.r = Number.isFinite(parameters.r) ? new WatchableValue({ value: parameters.r }) : parameters.r instanceof WatchableValue ? parameters.r : new WatchableValue();
+		this.g = Number.isFinite(parameters.g) ? new WatchableValue({ value: parameters.g }) : parameters.g instanceof WatchableValue ? parameters.g : new WatchableValue();
+		this.b = Number.isFinite(parameters.b) ? new WatchableValue({ value: parameters.b }) : parameters.b instanceof WatchableValue ? parameters.b : new WatchableValue();
+		this.a = Number.isFinite(parameters.a) ? new WatchableValue({ value: parameters.a }) : parameters.a instanceof WatchableValue ? parameters.a : new WatchableValue();
 	}
+	this.r.callback = this.g.callback = this.b.callback = this.a.callback = Color.betweenZeroAndOne;
+	this.r.parent = this.g.parent = this.b.parent = this.a.parent = this;
 }
 
 Camera.prototype = Object.create(Watchable.prototype);
@@ -1947,6 +1963,23 @@ function Controls(parameters)
 
 Renderer.prototype = Object.create(ElementEventListener.prototype);
 Renderer.prototype.constructor = Renderer;
+Object.defineProperty(Renderer.prototype, "clearColor", { get: function getClearColor()
+{
+	return this._clearColor;
+},
+set: function setClearColor(clearColor)
+{
+	if(this._clearColor)
+	{
+		this._clearColor.removeWatcher(this.clearColorWatcher);
+		delete this._clearColor.modified;
+	}
+	this._clearColor = clearColor;
+	this.clearColorWatcher = this._clearColor.watch(function markClearColorAsModified()
+	{
+		this.clearColor.modified = true;
+	}, this);
+} });
 Object.defineProperty(Renderer.prototype, "animate", { value: function animate(now)
 {
 	now /= 1000;
@@ -1992,6 +2025,7 @@ function Renderer(parameters)
 {
 	parameters = parameters || { };
 	this.game = parameters.game;
+	this.clearColor = new Color([ 1, 1, 1, 1 ]);
 	if(!parameters.textureMap)
 		parameters.textureMap = { };
 	parameters.textureMap.renderer = this;
@@ -2022,7 +2056,6 @@ Object.defineProperty(WebGLRenderer.prototype, "onElementSet", { value: function
 } });
 Object.defineProperty(WebGLRenderer.prototype, "setup", { value: function setup()
 {
-	this.gl.clearColor(0, 0, 0, 1);
 	this.gl.clearDepth(1);
 	this.gl.enable(this.gl.DEPTH_TEST);
 	this.gl.depthFunc(this.gl.LEQUAL);
@@ -2076,6 +2109,11 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 		if(callSuper(this, "render", delta) && this.shaders)
 		{
 			this.shaders.tryRecompileShaders(this);
+			if(this.clearColor.modified)
+			{
+				this.gl.clearColor(this.clearColor[0], this.clearColor[1], this.clearColor[2], this.clearColor[3]);
+				this.clearColor.modified = false;
+			}
 			this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 			this.layers.forEach(function drawLayer(layer)
 			{
@@ -2139,9 +2177,14 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 					layer.vertexBuffer.triangles.modified = false;
 				}
 				this.gl.useProgram(this.shaders.program);
+				if(layer.overlayColor.modified)
+				{
+					this.gl.uniform4fv(this.shaders.uniforms.overlayColor, new Float32Array(layer.overlayColor));
+					layer.overlayColor.modified = false;
+				}
 				var aIntensity = layer.lighting.ambient.intensity;
 				var aColor = layer.lighting.ambient.color;
-				this.gl.uniform3f(this.shaders.uniforms.ambientColor, (aColor.r + 1) / 256 * aIntensity, (aColor.g + 1) / 256 * aIntensity, (aColor.b + 1) / 256 * aIntensity);
+				this.gl.uniform3f(this.shaders.uniforms.ambientColor, aColor[0] * aIntensity, aColor[1] * aIntensity, aColor[2] * aIntensity);
 				layer.lighting.directionals.forEach(function pushLightToGPU(directional, index)
 				{
 					if(index < this.registeredLights)
@@ -2150,7 +2193,7 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 						this.gl.uniform3fv(this.shaders.uniforms.dlDirections[index], new Float32Array(direction));
 						var dIntensity = directional.intensity;
 						var dColor = directional.color;
-						this.gl.uniform3fv(this.shaders.uniforms.dlColors[index], [ (dColor.r + 1) / 256 * dIntensity, (dColor.g + 1) / 256 * dIntensity, (dColor.b + 1) / 256 * dIntensity ]);
+						this.gl.uniform3fv(this.shaders.uniforms.dlColors[index], [ dColor[0] * dIntensity, dColor[1] * dIntensity, dColor[2] * dIntensity ]);
 					}
 				});
 				if(layer.projection.matrix.modified)
@@ -2258,6 +2301,7 @@ Object.defineProperty(GLSLShaders.prototype, "getUniforms", { value: function ge
 {
 	var uniforms =
 	{
+		overlayColor: renderer.gl.getUniformLocation(this.program, "uOverlayColor"),
 		projectionMatrix: renderer.gl.getUniformLocation(this.program, "uProjectionMatrix"),
 		modelViewMatrix: renderer.gl.getUniformLocation(this.program, "uModelViewMatrix"),
 		normalMatrix: renderer.gl.getUniformLocation(this.program, "uNormalMatrix"),
@@ -2524,7 +2568,7 @@ function Light(parameters)
 {
 	parameters = parameters || { };
 	Watchable.call(this, parameters);
-	this.color = parameters.color instanceof Color ? parameters.color : new Color(parameters.color || [ 255, 255, 255 ]);
+	this.color = parameters.color instanceof Color ? parameters.color : new Color(parameters.color || [ 1, 1, 1 ]);
 	this.intensity = parameters.intensity || 1;
 }
 
@@ -2548,6 +2592,23 @@ function Lighting(parameters)
 
 Layer.prototype = Object.create(Watchable.prototype);
 Layer.prototype.constructor = Layer;
+Object.defineProperty(Layer.prototype, "overlayColor", { get: function getOverlayColor()
+{
+	return this._overlayColor;
+},
+set: function setOverlayColor(overlayColor)
+{
+	if(this._overlayColor)
+	{
+		this._overlayColor.removeWatcher(this.overlayColorWatcher);
+		delete this._overlayColor.modified;
+	}
+	this._overlayColor = overlayColor;
+	this.overlayColorWatcher = this._overlayColor.watch(function markOverlayColorAsModified()
+	{
+		this.overlayColor.modified = true;
+	}, this);
+} });
 Object.defineProperty(Layer.prototype, "onTextureMapChange", { value: function onTextureMapChange(renderer)
 {
 	this.geometries.forEach(function notifyGeometryOfTextureMapChange(geometry)
@@ -2562,6 +2623,7 @@ function Layer(parameters)
 	Watchable.call(this, parameters);
 	this.game = parameters.game;
 	this.geometries = [ ];
+	this.overlayColor = new Color([ 1, 1, 1, 1 ]);
 	this.vertexBuffer = new VertexBuffer();
 	if(!parameters.projection)
 		parameters.projection = { };
