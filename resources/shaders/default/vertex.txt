@@ -15,10 +15,9 @@ void main(void)
 {
 	gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
 	vTextureCoord = aTextureCoord;
-	vLightingWeighting = uAmbientColor;
 	vec3 transformedNormal = (uNormalMatrix * aNormalDirection).xyz;
-	vec3 lightWeighting = uDlColors[0] * max(dot(transformedNormal, uDlDirections[0]), 0.0);
-	for(int i = 1; i < {0}; i++)
-		lightWeighting += uDlColors[i] * max(dot(transformedNormal, uDlDirections[i]), 0.0);
-	vLightingWeighting = uAmbientColor + lightWeighting;
+	vec3 lightWeighting = vec3(1, 1, 1);
+	for(int i = 0; i < {0}; i++)
+		lightWeighting = lightWeighting * (uDlColors[i] * max(dot(transformedNormal, uDlDirections[i]), 0.0));
+	vLightingWeighting = (0.5 * uAmbientColor.rgb) + (lightWeighting.rgb * 0.5);
 }

@@ -562,6 +562,39 @@ Object.defineProperty(Color, "betweenZeroAndOne", { value: function betweenZeroA
 {
 	return Math.max(0, Math.min(1, number || 0));
 } });
+Object.defineProperty(Color.prototype, "copy", { value: function copy()
+{
+	return new Color([ this[0], this[1], this[2], this[3] ]);
+} });
+Object.defineProperty(Color.prototype, "multiply", { value: function multiply()
+{
+	switch(arguments.length)
+	{
+		case 1:
+		{
+			this[0] *= arguments[0];
+			this[1] *= arguments[0];
+			this[2] *= arguments[0];
+			break;
+		}
+		case 3:
+		{
+			this[0] *= arguments[0];
+			this[1] *= arguments[1];
+			this[2] *= arguments[2];
+			break;
+		}
+		case 4:
+		{
+			this[0] *= arguments[0];
+			this[1] *= arguments[1];
+			this[2] *= arguments[2];
+			this[3] *= arguments[3];
+			break;
+		}
+	}
+	return this;
+} });
 Object.defineProperty(Color.prototype, 0, { get: function getR()
 {
 	return this.r.value;
@@ -2108,7 +2141,7 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 		}
 		if(callSuper(this, "render", delta) && this.shaders)
 		{
-			this.shaders.tryRecompileShaders(this);
+			var recompiled = this.shaders.tryRecompileShaders(this);
 			if(this.clearColor.modified)
 			{
 				this.gl.clearColor(this.clearColor[0], this.clearColor[1], this.clearColor[2], this.clearColor[3]);
@@ -2117,7 +2150,7 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 			this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 			this.layers.forEach(function drawLayer(layer)
 			{
-				if(!(layer.vertexBuffer.vertices instanceof Float32Array))
+				if(!(layer.vertexBuffer.vertices instanceof Float32Array) || recompiled)
 				{
 					var glBuffer = layer.vertexBuffer.vertices.glBuffer;
 					var vertices = layer.vertexBuffer.vertices = new Float32Array(layer.vertexBuffer.vertices);
@@ -2126,7 +2159,7 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 					vertices.glBuffer = glBuffer;
 					vertices.modified = true;
 				}
-				if(!(layer.vertexBuffer.uvs instanceof Float32Array))
+				if(!(layer.vertexBuffer.uvs instanceof Float32Array) || recompiled)
 				{
 					var glBuffer= layer.vertexBuffer.uvs.glBuffer;
 					var uvs = layer.vertexBuffer.uvs = new Float32Array(layer.vertexBuffer.uvs);
@@ -2135,7 +2168,7 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 					uvs.glBuffer = glBuffer;
 					uvs.modified = true;
 				}
-				if(!(layer.vertexBuffer.normals instanceof Float32Array))
+				if(!(layer.vertexBuffer.normals instanceof Float32Array) || recompiled)
 				{
 					var glBuffer = layer.vertexBuffer.normals.glBuffer;
 					var normals = layer.vertexBuffer.normals = new Float32Array(layer.vertexBuffer.normals);
@@ -2144,7 +2177,7 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 					normals.glBuffer = glBuffer;
 					normals.modified = true;
 				}
-				if(!(layer.vertexBuffer.triangles instanceof Uint16Array))
+				if(!(layer.vertexBuffer.triangles instanceof Uint16Array) || recompiled)
 				{
 					var glBuffer = layer.vertexBuffer.triangles.glBuffer || this.gl.createBuffer();
 					var triangles = layer.vertexBuffer.triangles = new Uint16Array(layer.vertexBuffer.triangles);
@@ -2176,32 +2209,35 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 					this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, layer.vertexBuffer.triangles, this.gl.STATIC_DRAW);
 					layer.vertexBuffer.triangles.modified = false;
 				}
-				this.gl.useProgram(this.shaders.program);
-				if(layer.overlayColor.modified)
+				if(this.gl.getParameter(this.gl.CURRENT_PROGRAM) != this.shaders.program)
+					this.gl.useProgram(this.shaders.program);
+				if(layer.overlayColor.modified || recompiled)
 				{
 					this.gl.uniform4fv(this.shaders.uniforms.overlayColor, new Float32Array(layer.overlayColor));
 					layer.overlayColor.modified = false;
 				}
-				var aIntensity = layer.lighting.ambient.intensity;
-				var aColor = layer.lighting.ambient.color;
-				this.gl.uniform3f(this.shaders.uniforms.ambientColor, aColor[0] * aIntensity, aColor[1] * aIntensity, aColor[2] * aIntensity);
-				layer.lighting.directionals.forEach(function pushLightToGPU(directional, index)
+				if(layer.lighting.ambientLight.modified || recompiled)
 				{
-					if(index < this.registeredLights)
+					var processedAmbientLightColor = layer.lighting.ambientLight.processedColor;
+					this.gl.uniform3f(this.shaders.uniforms.ambientColor, processedAmbientLightColor[0], processedAmbientLightColor[1], processedAmbientLightColor[2]);
+					layer.lighting.ambientLight.modified = false;
+				}
+				layer.lighting.directionalLights.forEach(function pushLightToGPUIfModified(directionalLight, index)
+				{
+					if(directionalLight.modified && index < this.registeredLights)
 					{
-						var direction = directional.direction;
-						this.gl.uniform3fv(this.shaders.uniforms.dlDirections[index], new Float32Array(direction));
-						var dIntensity = directional.intensity;
-						var dColor = directional.color;
-						this.gl.uniform3fv(this.shaders.uniforms.dlColors[index], [ dColor[0] * dIntensity, dColor[1] * dIntensity, dColor[2] * dIntensity ]);
+						this.gl.uniform3f(this.shaders.uniforms.dlDirections[index], directionalLight.direction[0], directionalLight.direction[1], directionalLight.direction[2]);
+						var directionalLightProcessedColor = directionalLight.processedColor;
+						this.gl.uniform3f(this.shaders.uniforms.dlColors[index], directionalLightProcessedColor[0], directionalLightProcessedColor[1], directionalLightProcessedColor[2]);
+						directionalLight.modified = false;
 					}
-				});
-				if(layer.projection.matrix.modified)
+				}, this);
+				if(layer.projection.matrix.modified || recompiled)
 				{
 					this.gl.uniformMatrix4fv(this.shaders.uniforms.projectionMatrix, false, layer.projection.matrix);
 					layer.projection.matrix.modified = false;
 				}
-				if(layer.modelView.matrix.modified)
+				if(layer.modelView.matrix.modified || recompiled)
 				{
 					this.gl.uniformMatrix4fv(this.shaders.uniforms.modelViewMatrix, false, layer.modelView.matrix);
 					this.gl.uniformMatrix3fv(this.shaders.uniforms.normalMatrix, false, mat3.transpose([ ], mat3.invert([ ], mat3.fromMat4([ ], layer.modelView.matrix))));
@@ -2267,6 +2303,7 @@ Object.defineProperty(GLSLShaders.prototype, "tryRecompileShaders", { value: fun
 		renderer.gl.linkProgram(program);
 		this.populateVariables(renderer);
 	}
+	return relink > 0;
 } });
 Object.defineProperty(GLSLShaders.prototype, "tryRecompileShader", { value: function tryRecompileShader(renderer, shader)
 {
@@ -2563,6 +2600,10 @@ function CameraModelView(parameters)
 
 Light.prototype = Object.create(Watchable.prototype);
 Light.prototype.constructor = Light;
+Object.defineProperty(Light.prototype, "processedColor", { get: function getProcessedColor()
+{
+	return this.color.copy().multiply(this.intensity);
+} });
 
 function Light(parameters)
 {
@@ -2582,12 +2623,58 @@ function DirectionalLight(parameters)
 	this.direction = parameters.direction instanceof Vector3 ? parameters.direction : new Vector3(parameters.direction);
 }
 
+Object.defineProperty(Lighting.prototype, "ambientLight", { get: function getAmbientLight()
+{
+	return this._ambientLight;
+}, set: function setAmbientLight(ambientLight)
+{
+	if(this._ambientLight)
+	{
+		this._ambientLight.removeWatcher(this.ambientLightWatcher);
+		delete this._ambientLight.modified;
+	}
+	this._ambientLight = ambientLight;
+	this.ambientLightWatcher = this._ambientLight.watch(function markAmbientLightAsModified()
+	{
+		this.ambientLight.modified = true;
+	}, this);
+} });
+
+Object.defineProperty(Lighting.prototype, "directionalLights", { get: function getDirectionalLights()
+{
+	return this._directionalLights;
+}, set: function setDirectionalLights(directionalLights)
+{
+	if(this._directionalLights)
+		this._directionalLights.forEach(function removeDirectionalLightWatcher(directionalLight, index)
+		{
+			directionalLight.removeWatcher(this._directionalLights.watchers[index]);
+			delete directionalLight.modified;
+		}, this);
+	this._directionalLights = directionalLights;
+	this._directionalLights.watchers = [ ];
+	this._directionalLights.forEach(function watchDirectionalLight(directionalLight, index)
+	{
+		this._directionalLights.watchers[index] = directionalLight.watch(function markDirectionalLightAsModified()
+		{
+			directionalLight.modified = true;
+		});
+	}, this);
+} });
+Object.defineProperty(Lighting.prototype, "directionalLight", { set: function setDirectionalLight(directionalLight)
+{
+	directionalLight.watch(function markDirectionalLightAsModified()
+	{
+		directionalLight.modified = true;
+	});
+	this.directionalLights.push(directionalLight);
+} });
+
 function Lighting(parameters)
 {
 	parameters = parameters || { };
-	this.ambient = parameters.ambient instanceof Light ? parameters.ambient : new Light(parameters.ambient);
-	this.directionals = parameters.directionals || [ ];
-	this.points = parameters.points || [ ];
+	this.ambientLight = parameters.ambientLight instanceof Light ? parameters.ambient : new Light(parameters.ambientLight);
+	this.directionalLights = parameters.directionalLights || [ ];
 }
 
 Layer.prototype = Object.create(Watchable.prototype);
@@ -2888,3 +2975,5 @@ function Game(parameters)
 	this.renderer.animate();
 	this.activeControls = this.level.controls;
 }
+
+
