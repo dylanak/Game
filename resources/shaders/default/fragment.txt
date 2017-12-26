@@ -19,7 +19,6 @@ struct Layer
 {
 	vec4 overlayColor;
 	mat4 viewMatrix;
-	mat3 normalMatrix;
 	int lightCount;
 	Light lights[{5}];
 };

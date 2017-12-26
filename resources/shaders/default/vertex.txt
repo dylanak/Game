@@ -19,7 +19,6 @@ struct Layer
 {
 	vec4 overlayColor;
 	mat4 viewMatrix;
-	mat3 normalMatrix;
 	int lightCount;
 	Light lights[{5}];
 };
@@ -52,7 +51,7 @@ void main(void)
 		vPosition = vec3(position);
 		gl_Position = position;
 		vTextureCoordinate = aTextureCoordinate;
-		vTransformedNormal = uLayers[uRenderingLayer].normalMatrix * aNormalDirection;
+		vTransformedNormal = mat3(aVertexMatrix) * aNormalDirection;
 		Material material = uMaterials[int(aLayerAndMaterial[1])];
 		vMaterialShininess = material.shininess;
 		vMaterialSpecularColor = material.specularColor;
