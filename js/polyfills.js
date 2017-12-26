@@ -2,6 +2,10 @@ Object.defineProperty(Math, "HALFPI", { value: Math.PI / 2 });
 Object.defineProperty(Math, "PI2", { value: Math.PI * 2 });
 Object.defineProperty(Math, "DTR", { value: Math.PI / 180 });
 Object.defineProperty(Math, "RTD", { value: 180 / Math.PI });
+Math.log2 = Math.log2 || function log2(x)
+{
+	return Math.log(x) * Math.LOG2E;
+};
 Array.concat = function()
 {
 	var ret = [ ];

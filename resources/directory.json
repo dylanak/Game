@@ -31,17 +31,22 @@
 	{
 		"default":
 		{
+			"canReformat":
+			"return this.registeredMaterials != renderer.game.materials.length || this.registeredLayers != renderer.layers.length || renderer.layers.every(function layerDoesntHaveEqualLightsToRegistered(layer) { return layer.lights.length != this.registeredLights; }, this) || renderer.layers.some(function layerHasMoreLightsThanRegistered(layer) { return layer.lights.length > this.registeredLights; }, this);",
+			"preFormat":
+			"this.registeredMaterials = renderer.game.materials.length; this.registeredLayers = renderer.layers.length; this.registeredLights = 0; renderer.layers.forEach(function setRegisteredLightsToLightsIfGreater(layer) { this.registeredLights = Math.max(this.registeredLights, layer.lights.length); }, this);",
 			"vertex":
 			{
 				"source": "default/vertex.txt",
-				"canReformat":
-				"var directionalLights = 0; renderer.layers.forEach(function(layer) { directionalLights = Math.max(directionalLights, layer.lighting.directionalLights.length); }); return renderer.registeredLights != directionalLights;",
 				"format":
-				"var directionalLights = 0; renderer.layers.forEach(function(layer) { directionalLights = Math.max(directionalLights, layer.lighting.directionalLights.length); }); renderer.registeredLights = directionalLights; return raw.format(directionalLights, Math.max(directionalLights, 1));"
+				"return raw.format(this.registeredMaterials, Math.max(this.registeredMaterials, 1), this.registeredLayers, Math.max(this.registeredLayers, 1), this.registeredLights, Math.max(this.registeredLights, 1));"
 			},
 			"fragment":
 			{
-				"source": "default/fragment.txt"
+				"source": "default/fragment.txt",
+				"format":
+				"return raw.format(this.registeredMaterials, Math.max(this.registeredMaterials, 1), this.registeredLayers, Math.max(this.registeredLayers, 1), this.registeredLights, Math.max(this.registeredLights, 1));"
+
 			}
 		}
 	}

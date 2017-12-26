@@ -1,11 +1,69 @@
-precision mediump float;
-uniform vec4 uOverlayColor;
+precision highp float;
+precision highp int;
+
+struct Material
+{
+	float shininess;
+	vec3 specularColor;
+};
+struct Light
+{
+	float ambience;
+	float attenuation;
+	vec3 position;
+	vec3 direction;
+	vec3 color;
+	bool orthographic;
+};
+struct Layer
+{
+	vec4 overlayColor;
+	mat4 viewMatrix;
+	mat3 normalMatrix;
+	int lightCount;
+	Light lights[{5}];
+};
+
+uniform int uRenderingLayer;
 uniform sampler2D uSampler;
-varying highp vec2 vTextureCoord;
-varying mediump vec3 vLightingWeighting;
+uniform Layer uLayers[{3}];
+
+varying float vLayer;
+varying highp vec3 vViewPosition;
+varying highp vec3 vPosition;
+varying highp vec2 vTextureCoordinate;
+varying highp vec3 vTransformedNormal;
+varying highp float vMaterialShininess;
+varying highp vec3 vMaterialSpecularColor;
 
 void main(void)
 {
-	vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-	gl_FragColor = vec4(textureColor.rgb * vLightingWeighting, textureColor.a) * uOverlayColor;
+	for(int layer = 0; layer < {2}; layer++)
+		if(layer == uRenderingLayer)
+		{
+			vec4 textureColor = texture2D(uSampler, vTextureCoordinate);
+			vec3 baseColor = vec3(1, 1, 1);
+			for(int light = 0; light < {4}; light++)
+			{
+				float ambience = uLayers[layer].lights[light].ambience;
+				float attenuation = uLayers[layer].lights[light].attenuation;
+				if(light < uLayers[layer].lightCount)
+				{	
+					vec3 positionToLightNormal;
+					vec3 positionToLightDifference = uLayers[layer].lights[light].position - vPosition;
+					if(uLayers[layer].lights[light].orthographic)
+						positionToLightNormal = -uLayers[layer].lights[light].direction;
+					else
+						positionToLightNormal = normalize(positionToLightDifference);
+					vec3 lightColor = uLayers[layer].lights[light].color;
+					float diffuse = max(0.0, dot(vTransformedNormal, positionToLightNormal));
+					vec3 specularColor = vec3(0, 0, 0);
+					if(diffuse > 0.0)
+						specularColor = pow(max(0.0, dot(normalize(vViewPosition - vPosition), reflect(-positionToLightNormal, vTransformedNormal))), 1.0/*vMaterialShininess*/) * vec3(1, 1, 1)/*vMaterialSpecularColor*/ * lightColor;
+					baseColor *= ambience * lightColor + (diffuse * textureColor.rgb * lightColor + specularColor) / (1.0 + attenuation * pow(length(positionToLightDifference), 2.0));
+				}
+			}
+			gl_FragColor = vec4(textureColor.rgb * pow(baseColor.rgb, vec3(1.0/2.2)), textureColor.a) * uLayers[layer].overlayColor;
+		}
+	//gl_FragColor = vec4(textureColor.rgb, textureColor.a);
 }
