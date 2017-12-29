@@ -1,9 +1,0 @@
-{
-	"manifest_version": 2,
-	"short_name": "Game Short",
-	"name": "Game",
-	"version": "0.0.0",
-	"start_url": "/play.html"
-	"display": "fullscreen",
-	"orientation": "landscape"
-}
