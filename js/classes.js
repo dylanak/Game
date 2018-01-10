@@ -725,124 +725,153 @@ function Physics(parameters)
 	this.collisionMesh = parameters.collisionMesh instanceof CollisionMesh ? parameters.collisionMesh : new CollisionMesh();
 }
 
-Geometry.prototype = Object.create(Updatable.prototype);
-Geometry.prototype.constructor = Geometry;
-Object.defineProperty(Geometry.prototype, "buildGeometry", { value: function buildGeometry(renderer)
+function GeometryBuilder(parameters)
 {
-} });
-Object.defineProperty(Geometry.prototype, "onTextureMapChange", { value: function onTextureMapChange(renderer)
-{
-	this.buildGeometry(renderer);
-} });
-Object.defineProperty(Geometry.prototype, "updatePre", { value: function updatePre()
-{
-	this.buildGeometry();
-} });
-
-function Geometry(parameters, layer, vertices, triangles)
-{
-	Updatable.call(this, parameters = parameters || { });
-	this.index = layer.geometries.push(this) - 1;
-	this.allocation = layer.triangleBuffer.allocate(vertices, Number.isFinite(triangles) ? triangles : vertices / 2);
-	this.render = parameters.render || true;
-	this.physics = parameters.physics instanceof Physics ? parameters.physics : new Physics(parameters.physics);
-	this.position = parameters.position instanceof Vector3 ? parameters.position : new Vector3(parameters.position);
-	this.rotation = parameters.rotation instanceof Vector3 ? parameters.rotation : new RotationVector3(parameters.rotation);
-	this.position.watch(this.requestUpdate, this);
-	this.rotation.watch(this.requestUpdate, this);
-	this.requestUpdate();
-}
-
-RectangularPrismGeometry.prototype = Object.create(Geometry.prototype);
-RectangularPrismGeometry.prototype.constructor = RectangularPrismGeometry;
-Object.defineProperty(RectangularPrismGeometry.prototype, "buildGeometry", { value: function buildGeometry(renderer)
-{
-	callSuper(this, "buildGeometry", renderer);
-	this.requestUpdates = false;
-	sv = wrapFunction(this.allocation.setVertex, this.allocation);
-	vi = wrapFunction(this.allocation.getVertexIndex, this.allocation);
-	st = wrapFunction(this.allocation.setTriangle, this.allocation);
-
-	var halves = [ this.width / 2, this.height / 2, this.depth / 2 ];
-	sv(0, [ -halves[0], halves[1], halves[2] ], [ 0, 0 ], [ 1, 0, 0 ]);
-	sv(1, [ halves[0], halves[1], halves[2] ], [ 1, 0 ], [ 1, 0, 0 ]);
-	sv(2, [ halves[0], -halves[1], halves[2] ], [ 1, 1 ], [ 1, 0, 0 ]);
-	sv(3, [ -halves[0], -halves[1], halves[2] ], [ 0, 1 ], [ 1, 0, 0 ]);
-	st(0, vi(0), vi(1), vi(3));
-	st(1, vi(1), vi(2), vi(3));
-
-	sv(4, [ halves[0], halves[1], halves[2] ], [ 0, 0 ], [ 1, 0, 0 ]);
-	sv(5, [ halves[0], halves[1], -halves[2] ], [ 1, 0 ], [ 1, 0, 0 ]);
-	sv(6, [ halves[0], -halves[1], -halves[2] ], [ 1, 1 ], [ 1, 0, 0 ]);
-	sv(7, [ halves[0], -halves[1], halves[2] ], [ 0, 1 ], [ 1, 0, 0 ]);
-	st(2, vi(4), vi(5), vi(7));
-	st(3, vi(5), vi(6), vi(7));
-
-	sv(8, [ halves[0], halves[1], -halves[2] ], [ 0, 0 ], [ 1, 0, 0 ]);
-	sv(9, [ -halves[0], halves[1], -halves[2] ], [ 1, 0 ], [ 1, 0, 0 ]);
-	sv(10, [ -halves[0], -halves[1], -halves[2] ], [ 1, 1 ], [ 1, 0, 0 ]);
-	sv(11, [ halves[0], -halves[1], -halves[2] ], [ 0, 1 ], [ 1, 0, 0 ]);
-	st(4, vi(8), vi(9), vi(11));
-	st(5, vi(9), vi(10), vi(11));
-
-	sv(12, [ -halves[0], halves[1], -halves[2] ], [ 0, 0 ], [ 1, 0, 0 ]);
-	sv(13, [ -halves[0], halves[1], halves[2] ], [ 1, 0 ], [ 1, 0, 0 ]);
-	sv(14, [ -halves[0], -halves[1], halves[2] ], [ 1, 1 ], [ 1, 0, 0 ]);
-	sv(15, [ -halves[0], -halves[1], -halves[2] ], [ 0, 1 ], [ 1, 0, 0 ]);
-	st(6, vi(12), vi(13), vi(15));
-	st(7, vi(13), vi(14), vi(15));
-
-	sv(16, [ -halves[0], halves[1], -halves[2] ], [ 0, 0 ], [ 1, 0, 0 ]);
-	sv(17, [ halves[0], halves[1], -halves[2] ], [ 1, 0 ], [ 1, 0, 0 ]);
-	sv(18, [ halves[0], halves[1], halves[2] ], [ 1, 1 ], [ 1, 0, 0 ]);
-	sv(19, [ -halves[0], halves[1], halves[2] ], [ 0, 1 ], [ 1, 0, 0 ]);
-	st(8, vi(16), vi(17), vi(19));
-	st(9, vi(17), vi(18), vi(19));
-
-	sv(20, [ -halves[0], -halves[1], halves[2] ], [ 0, 0 ], [ 1, 0, 0 ]);
-	sv(21, [ halves[0], -halves[1], halves[2] ], [ 1, 0 ], [ 1, 0, 0 ]);
-	sv(22, [ halves[0], -halves[1], -halves[2] ], [ 1, 1 ], [ 1, 0, 0 ]);
-	sv(23, [ -halves[0], -halves[1], -halves[2] ], [ 0, 1 ], [ 1, 0, 0 ]);
-	st(10, vi(20), vi(21), vi(23));
-	st(11, vi(21), vi(22), vi(23));
-
-	var matrix = mat4.identity([ ]);
-	mat4.translate(matrix, matrix, this.position);
-	mat4.rotateX(matrix, matrix, Math.rad(this.rotation[0]));
-	mat4.rotateY(matrix, matrix, Math.rad(this.rotation[1]));
-	mat4.rotateZ(matrix, matrix, Math.rad(this.rotation[2]));
-	for(var i = 0; i < 24; i++)
-		this.allocation.setMatrix(i, matrix, true);
-	this.allocation.applyVertices();
-
-	this.requestUpdates = true;
-} });
-
-function RectangularPrismGeometry(layer, parameters)
-{
-	parameters = parameters || { };
-	this.width = parameters.width || 1;
-	this.height = parameters.height || 1;
-	this.depth = parameters.depth || 1;
-	this.texture = parameters.texture instanceof Texture ? parameters.texture : layer.game.renderer.textureMap.textures[0];
-	Geometry.call(this, parameters, layer, 24);
-}
-
-function ElipticalPrism(parameters)
-{
-	this.heightSegments = parameters.heightSegments || 10;
-	this.widthSegments = parameters.widthSegments || 10;
-	this.diameter = parameters.diameter || 1;
-	var startVector = new Vector3([ 0, -this.diameter / 2, 0 ]);
-	var startNormal = new Vector3([ 0, -1, 0 ]);
-	for(var i = 0; i < this.heightSegments; i++)
+	var json = parameters.json;
+	if(!json)
 	{
-		var vector = vec3.transformMat3([ ], vec3.transformMat3([ ], vec3.transformMat3([ ], [ startVector[0], startVector[1], startVector[2] ], matrixY), matrixX), matrixZ);
-		var normal = vec3.transformMat3([ ], vec3.transformMat3([ ], vec3.transformMat3([ ], [ startNormal[0], startNormal[1], startNormal[2] ], matrixY), matrixX), matrixZ);
-		for(var j = 0; j < this.widthSegments; j++)
+		this.errored = true;
+		console.error("The json at \"{0}\" is either non-existant or empty.".format(parameters.path));
+	}
+	var version = Number.parseFloat(json.version);
+	if(!this.errored && !Number.isFinite(version))
+	{
+		this.errored = true;
+		console.error("The version specified at \"{0}\"/version is either not a number, not finite, or non-existant.".format(parameters.path));
+	}
+	var properties = [ ];
+	var propertiesJson = json.properties || { };
+	if(propertiesJson.order instanceof Array)
+	{
+		propertiesJson.order.forEach(function putOrderedProperty(propertyName, propertyIndex)
 		{
-			this.lie;
+			if(!this.errored)
+				if(propertyName != "order" && propertiesJson[propertyName])
+				{
+					properties[propertyIndex] = propertyName;
+				}
+				else
+				{
+					this.errored = true;
+					console.error("\"{0}\" is listed in \"{0}\"/properties/order but is not actually a property.".format(propertyName, parameters.path));
+				}
+		}, this);
+		delete propertiesJson.order;
+	}
+	else
+	{
+		this.errored = true;
+		console.error("The order specified at \"{0}\"/properties/order is non-existant".format(parameters.path));
+	}
+	if(!this.errored && Object.keys(propertiesJson).length < properties.length)
+	{
+		this.errored = true;
+		console.error("There are more properties ({0}) at \"{1}\"/properties than specified in the order at \"{1}\"/properties/order ({2}).".format(Object.keys(propertiesJson.length), paramters.path, properties.length));
+	}
+	var geometryPrototypeProperties =
+	{
+		builder: { value: this },
+		updateVertices: { value: function updateVertices()
+		{
+			this.vertexCache = [ ];
+			var rebuildTriangles = this.builder.updateVertices.apply(undefined, [ this.cacheVertex ].concat(this.properties));
+			if(!rebuildTriangles && this.allocation)
+			{
+				this.vertexCache.forEach(function putVertex(vertex)
+				{
+					this.allocation.setVertex.apply(this.allocation, vertex);
+				}, this);
+				return false;
+			}
+			return true;
+		} },
+		buildTriangles: { value: function buildTriangles()
+		{
+			this.triangleCache = [ ];
+			var allocationInfo = this.builder.buildTriangles.apply(undefined, [ this.cacheTriangle ].concat(this.properties));
+			if(!this.allocation)
+			{
+				this.allocation = this.layer.triangleBuffer.allocate(allocationInfo[0], allocationInfo[1]);
+				this.vertexCache.forEach(function putVertex(vertex)
+				{
+					this.allocation.setVertex.apply(this.allocation, vertex);
+				}, this);
+			}
+			this.triangleCache.forEach(function putTriangle(triangle)
+			{
+				this.allocation.setTriangle(triangle[0], this.allocation.getVertexIndex(triangle[1]), this.allocation.getVertexIndex(triangle[2]), this.allocation.getVertexIndex(triangle[3]));
+			}, this);
+		} },
+		updatePre: { value: function updatePre()
+		{
+			this.transformationMatrix = mat4.translate(this.transformationMatrix || [ ], mat4.identity([ ]), this.position);
+			mat4.rotateX(this.transformationMatrix, this.transformationMatrix, Math.rad(this.rotation[0]));
+			mat4.rotateY(this.transformationMatrix, this.transformationMatrix, Math.rad(this.rotation[1]));
+			mat4.rotateZ(this.transformationMatrix, this.transformationMatrix, Math.rad(this.rotation[2]));
+			if(this.updateVertices())
+				this.buildTriangles();
+		} },
+	};
+	var defaults = [ ];
+	properties.forEach(function addPropertyToGeometryPrototye(propertyName, propertyIndex)
+	{
+		if(!this.errored)
+		{
+			var propertyJson = propertiesJson[propertyName];
+			var defaultValue = defaults[propertyIndex] = propertyJson.default ? new Function(propertyJson.default)() : undefined;
+			var valueTransformer = propertyJson.transformer ? new Function("value", propertyJson.transformer) : self;
+			geometryPrototypeProperties[propertyName] =
+			{
+				get: function getProperty()
+				{
+					return this.properties[propertyIndex];
+				}, set: function setProperty(value)
+				{
+					this.properties[propertyIndex] = valueTransformer(value) || defaultValue;
+					this.requestUpdate();
+				}
+			};
 		}
+	}, this);
+	if(!this.errored)
+	{
+		this.geometryPrototype = function GeometryPrototype(parameters)
+		{
+			parameters = parameters || { };
+			this.layer = parameters.layer;
+			Updatable.call(this, Object.assign({ game: this.layer.game }, parameters));
+			this.index = this.layer.geometries.push(this) - 1;
+			this.position = parameters.position instanceof Vector3 ? parameters.position : new Vector3(parameters.position);
+			this.rotation = parameters.rotation instanceof Vector3 ? parameters.rotation : new RotationVector3(parameters.rotation);
+			this.texture = parameters.texture instanceof Texture ? parameters.texture : this.layer.game.renderer.textureMap.textures[0];
+			this.position.watch(this.requestUpdate.bind(this));
+			this.rotation.watch(this.requestUpdate.bind(this));
+			this.textureWatcher = this.texture.watch(this.requestUpdate.bind(this));
+			this.properties = Array.from(defaults);
+			this.cacheVertex = this.builder.cacheVertex.bind(this);
+			this.cacheTriangle = this.builder.cacheTriangle.bind(this);
+			this.matrix = mat4.identity([ ]);
+		};
+		this.geometryPrototype.prototype = Object.create(Updatable.prototype);
+		this.geometryPrototype.prototype.constructor = this.geometryPrototype;
+		Object.defineProperties(this.geometryPrototype.prototype, geometryPrototypeProperties);
+		Object.defineProperties(this,
+		{
+			version: { value: version },
+			defaults: { value: defaults },
+			updateVertices: { value: json.updateVertices ? Reflect.construct.call(undefined, Function, [ "vertex" ].concat(properties).concat([ json.updateVertices ])) : alwaysFalse },
+			buildTriangles: { value: json.buildTriangles ? Reflect.construct.call(undefined, Function, [ "triangle" ].concat(properties).concat([ json.buildTriangles ])) : constant([ 0, 0 ]) },
+			cacheVertex: { value: function cacheVertex(index, vector, uv, normal, matrix)
+			{
+				uv = this.texture.getAbsoluteUV(uv || [ 0, 0 ]);
+				matrix = matrix || mat4.identity([ ]);
+				this.vertexCache[index] = [ index, vector, uv, normal, mat4.multiply(matrix || [ ], matrix || mat4.identity([ ]), this.transformationMatrix) ];
+			} },
+			cacheTriangle: { value: function cacheTriangle(index, corner0, corner1, corner2)
+			{
+				this.triangleCache[index] = [ index, corner0, corner1, corner2 ];
+			} }
+		});
 	}
 }
 
@@ -1404,25 +1433,33 @@ function Controls(parameters)
 	ElementEventListener.call(this, parameters);
 }
 
+Texture.prototype = Object.create(Watchable.prototype);
+Texture.prototype.constructor = Texture;
 Object.defineProperty(Texture.prototype, "getAbsoluteU", { value: function getAbsoluteU(relativeU)
 {
 	var uvs = this.textureMap[this.index];
 	if(!uvs)
 		return NaN;
-	var uStart = uvs[0];
-	return uStart + relativeU * uvs[2];
+	return uvs[0] + relativeU * uvs[2];
 } });
 Object.defineProperty(Texture.prototype, "getAbsoluteV", { value: function getAbsoluteV(relativeV)
 {
 	var uvs = this.textureMap[this.index];
 	if(!uvs)
 		return NaN;
-	var vStart = uvs[1];
-	return vStart + relativeV * uvs[3];
+	return uvs[1] + relativeV * uvs[3];
+} });
+Object.defineProperty(Texture.prototype, "getAbsoluteUV", { value: function getAbsoluteUV(relativeUV)
+{
+	var uvs = this.textureMap[this.index];
+	if(!uvs)
+		return [ NaN, NaN ];
+	return [ uvs[0] + relativeUV[0] * uvs[2], uvs[1] + relativeUV[1] * uvs[3] ];
 } });
 
 function Texture(index, textureMap, image)
 {
+	Watchable.call(this);
 	this.index = index;
 	this.textureMap = textureMap;
 	this.image = image;
@@ -1697,6 +1734,7 @@ Object.defineProperty(TextureMap.prototype, "restitchTextures", { value: functio
 		{
 			return element / Math.pow(2, i);
 		});
+		texture.notifyWatchers();
 	}, this);
 	this.stitched.src = stitchCanvas.toDataURL();
 	this.stitched.addEventListener("load", this.onStichedLoad = wrapFunction(function onStitchedTextureMapLoad()
@@ -1869,8 +1907,8 @@ Object.defineProperty(GeometryAllocation.prototype, "setVertex", { value: functi
 		this.putVector(vector || [ 0, 0, 0 ], index * 3);
 		this.putUV(uv || [ 0, 0 ], index * 2);
 		this.putNormal(normal || [ 0, 0, 0 ], index * 3);
-		this.putMatrix(matrix || mat4.identity([ ]), index* 16);
-		this.triangleBuffer.vertexBuffer.vectors.modified = this.triangleBuffer.vertexBuffer.uvs.modified = this.triangleBuffer.vertexBuffer.normals.modified = this.triangleBuffer.vertexBuffer.matrices.modifed = true;
+		this.putMatrix(matrix || mat4.identity([ ]), index * 16);
+		this.triangleBuffer.vertexBuffer.vectors.modified = this.triangleBuffer.vertexBuffer.uvs.modified = this.triangleBuffer.vertexBuffer.normals.modified = this.triangleBuffer.vertexBuffer.matrices.modified = true;
 	}
 	return index;
 } });
@@ -1954,7 +1992,7 @@ Object.defineProperty(TriangleBuffer.prototype, "allocate", { value: function al
 		if(to != disallocation[1])
 		disallocations.push([ to, disallocation[1] ]);
 	});
-	this.disallocations = disallocations;
+	this.vertexBuffer.disallocations = disallocations;
 	var vectors = this.vertexBuffer.vectors instanceof Float32Array ? Array.from(this.vertexBuffer.vectors) : this.vertexBuffer.vectors;
 	var uvs = this.vertexBuffer.uvs instanceof Float32Array ? Array.from(this.vertexBuffer.uvs) : this.vertexBuffer.uvs;
 	var normals = this.vertexBuffer.normals instanceof Float32Array ? Array.from(this.vertexBuffer.normals) : this.vertexBuffer.normals;
@@ -1974,10 +2012,8 @@ Object.defineProperty(TriangleBuffer.prototype, "allocate", { value: function al
 	this.vertexBuffer.uvs = uvs;
 	this.vertexBuffer.normals = normals;
 	this.vertexBuffer.matrices = matrices;
-	var triangleBuffer = this.triangles.glBuffer;
 	var triangles = this.triangles instanceof Uint16Array ? Array.from(this.triangles) : this.triangles;
 	this.triangles = triangles.concat(new Array(triangleCount * 3).fill(0));
-	this.triangles.glBuffer = triangleBuffer;
 	var allocation = new GeometryAllocation(this, this.vertexBuffer.allocations.length, vertexRanges, [ this.triangles.length / 3 - triangleCount, this.triangles.length / 3 ]);
 	this.vertexBuffer.allocations.push(allocation);
 	return allocation;
@@ -2143,11 +2179,6 @@ Object.defineProperty(WebGLRenderer.prototype, "render", { value: function rende
 			this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
 			this.gl.generateMipmap(this.gl.TEXTURE_2D);
 			this.gl.activeTexture(this.gl.TEXTURE0);
-			this.textureMap.modified = false;
-			this.layers.forEach(function notifyLayerOfTextureMapChange(layer)
-			{
-				layer.onTextureMapChange(this);
-			});
 			this.textureMap.modified = false;
 		}
 		if(callSuper(this, "render", delta) && this.shaders)
@@ -2649,6 +2680,20 @@ function Light(parameters)
 
 Layer.prototype = Object.create(Watchable.prototype);
 Layer.prototype.constructor = Layer;
+Object.defineProperty(Layer.prototype, "addGeometry", { value: function addGeometry(name, position, rotation, properties)
+{
+	if(this.game.geometryBuilders[name])
+	{
+		var propertyValues = [ ];
+		Object.entries(properties || { }).forEach(function addPropertyValue(entry)
+		{
+			propertyValues.push(entry[1]);
+		});
+		return this.game.geometryBuilders[name]({ layer: this, position: position, rotation: rotation, propertyValues: propertyValues });
+	}
+	else
+		console.error("No such geometry with the name \"{0}\"".format(name));
+} });
 Object.defineProperty(Layer.prototype, "overlayColor", { get: function getOverlayColor()
 {
 	return this._overlayColor;
@@ -2694,14 +2739,6 @@ Object.defineProperty(Layer.prototype, "light", { set: function setLight(light)
 		this.lights.modified = light.modified = true;
 	}, this);
 	this.lights.push(light);
-} });
-
-Object.defineProperty(Layer.prototype, "onTextureMapChange", { value: function onTextureMapChange(renderer)
-{
-	this.geometries.forEach(function notifyGeometryOfTextureMapChange(geometry)
-	{
-		geometry.onTextureMapChange(renderer);
-	});
 } });
 
 function Layer(parameters)
@@ -2977,6 +3014,30 @@ function Game(parameters)
 	parameters.level.game = this;
 	this.level = new Level(parameters.level);
 	this.activeControlsArray = [ ];
+	this.geometryBuilders = { };
+	Object.entries(this.directory.geometryBuilders || { }).forEach(function requestGeometryBuilder(entry)
+	{
+		var geometryName = entry[0];
+		var pendingBuilds = [ ];
+		this.geometryBuilders[geometryName] = function addGeometryBuildToPending(parameters)
+		{
+			pendingBuilds.push(parameters);
+		};
+		requestText("resources/geometry_builders/" + entry[1], function processGeometryBuilder(text)
+		{
+			if(text)
+			{
+				var builder = new GeometryBuilder({ path: "{0}/resources/geometry_builders/{1}".format(window.origin, entry[1]), json: JSON.parse(text) });
+				var buildGeometry = this.geometryBuilders[geometryName] = function buildGeometry(parameters)
+				{
+					return new builder.geometryPrototype(parameters);
+				};
+				pendingBuilds.forEach(buildGeometry);
+			}
+			else
+				console.error("The geometry builder \"{0}\" is either non-existant or empty at \"{1}/resources/geometry_builders/{2}\".".format(entry[0], window.origin, entry[1]));
+		}.bind(this));
+	}, this);
 	if(parameters.renderer)
 		parameters.renderer.layers = [ this.gui, this.level ].concat(parameters.renderer.layers || [ ]);
 	else

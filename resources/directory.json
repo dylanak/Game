@@ -5,9 +5,9 @@
 	"translations":
 	{
 	},
-	"geometries":
+	"geometryBuilders":
 	{
-		"square": "square.json",
+		"plane": "plane.json",
 		"rectangular_prism": "rectangular_prism.json",
 		"sphere": "sphere.json"
 	},
