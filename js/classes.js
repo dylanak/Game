@@ -210,7 +210,7 @@ Object.defineProperties(Watchable.prototype = Object.create(Object.prototype),
 		if(index >= 0)
 		{
 			this.watchers.splice(index, 1);
-			watcher.watchable = undefined;
+			watcher.watching = undefined;
 		}
 	} },
 	notifyWatchers: { value: function notifyWatchers(oldValue)
@@ -784,6 +784,8 @@ function Camera(parameters)
 	this.position = new Vector[3](parameters.position);
 	this.rotation = new RotationVector[3](parameters.rotation);
 	this.fov = parameters.fov;
+	this.position.watch(this.requestUpdate.bind(this));
+	this.rotation.watch(this.requestUpdate.bind(this));
 }
 
 Object.defineProperties(Material.prototype = Object.create(Watchable.prototype),
