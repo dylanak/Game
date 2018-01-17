@@ -743,47 +743,6 @@ function MovingObject(parameters)
 	Updatable.call(this, parameters);
 	this.position = parameters.position instanceof Vector[3] ? parameters.position : new Vector[3](parameters.position);
 	this.rotation = parameters.rotation instanceof RotationVector[3] ? parameters.rotation : new RotationVector[3](parameters.rotation);
-}
-
-Object.defineProperties(Camera.prototype = Object.create(Watchable.prototype),
-{
-	constructor: { value: Camera },
-	lookAt: { value: function lookAt(vector) 
-	{
-		this.rotation[0] = Math.atan2(vector[1] - this.position[1], Math.hypot(vector[0] - this.position[0], this.position[2] - vector[2]));
-		this.rotation[1] = Math.atan2(vector[0] - this.position[0], this.position[2] - vector[2]);
-	} },
-	fov: { get: function getFov()
-	{
-		return this._fov;
-	}, set: function setFov(fov)
-	{
-		this._fov = fov || Math.PI / 4; this.notifyWatchers();
-	} },
-	near: { get: function getNear()
-	{
-		return this._near;
-	}, set: function setNear(near)
-	{
-		this._near = near || .1; this.notifyWatchers();
-	} },
-	far: { get: function getFar()
-	{
-		return this._far;
-	}, set: function setFar(far)
-	{
-		this._far = far || 100;
-		this.notifyWatchers();
-	} }
-});
-
-function Camera(parameters)
-{
-	parameters = parameters || { };
-	Watchable.call(this, parameters);
-	this.position = new Vector[3](parameters.position);
-	this.rotation = new RotationVector[3](parameters.rotation);
-	this.fov = parameters.fov;
 	this.position.watch(this.requestUpdate.bind(this));
 	this.rotation.watch(this.requestUpdate.bind(this));
 }
@@ -2676,27 +2635,32 @@ Object.defineProperties(View.prototype = Object.create(Updatable.prototype),
 	constructor: { value: View },
 	aspect: { get: function getAspect()
 	{
-		return this._aspect;
+		return this._aspect.value;
 	}, set: function setAspect(aspect)
 	{
-		this._aspect = aspect;
-		this.requestUpdate();
+		this._aspect.value = aspect;
 	} },
 	near: { get: function getNear()
 	{
-		return this._near;
+		return this._near.value;
 	}, set: function setNear(near)
 	{
-		this._near = near;
-		this.requestUpdate();
+		this._near.value = near;
 	} },
 	far: { get: function getFar()
 	{
-		return this._far;
+		return this._far.value;
 	}, set: function setFar(far)
 	{
-		this._far = far;
-		this.requestUpdate();
+		this._far.value = far;
+	} },
+	viewer: { get: function getViewer()
+	{
+		return this._viewer;
+	},
+	set: function setViewer(viewer)
+	{
+		this._viewer = this.viewerWatcher.watching = viewer;
 	} }
 });
 
@@ -2704,66 +2668,44 @@ function View(parameters)
 {
 	parameters = parameters || { };
 	Updatable.call(this, parameters);
+	this.viewerWatcher = new Watcher(this.requestUpdate.bind(this));
+	this.viewer = parameters.viewer;
 	this.matrix = new Float32Array(mat4.create());
 	this.matrix.defaultMatrix = true;
 	this.matrix.modified = true;
-	this.aspect = window.innerWidth / window.innerHeight;
-	this.near = parameters.near || .1;
-	this.far = parameters.far || 100;
+	this._aspect = new WatchableValue({ value: window.innerWidth / window.innerHeight });
+	this._aspect.watch(this.requestUpdate.bind(this));
+	this._aspect.parent = this;
+	this._near = Number.isFinite(parameters.near) ? new WatchableValue({ value: Math.abs(parameters.near) }) : parameters._near instanceof WatchableValue ? parameters._near : new WatchableValue({ value: .1 });
+	this._near.watch(this.requestUpdate.bind(this));
+	this._near.parent = this;
+	this._far = Number.isFinite(parameters.far) ? new WatchableValue({ value: Math.max(Math.abs(parameters.far), this.near) }) : parameters._far instanceof WatchableValue ? parameters._far : new WatchableValue({ value: 100 });
+	this._far.watch(this.requestUpdate.bind(this));
+	this._far.parent = this;
 }
 
 Object.defineProperties(PerspectiveView,
 {
 	update: { value: function update()
 	{
-		if(this.camera)
-		{
-			var position = (this.camera || { }).position;
-			var rotation = (this.camera || { }).rotation;
-			mat4.perspective(this.matrix, this.camera.fov, this.aspect, this.near, this.far);
-			mat4.rotateX(this.matrix, this.matrix, -rotation[0]);
-			mat4.rotateY(this.matrix, this.matrix, rotation[1]);
-			mat4.rotateZ(this.matrix, this.matrix, rotation[2]);
-			mat4.translate(this.matrix, this.matrix, [ -position[0], -position[1], -position[2] ]);
-			this.matrix.identityMatrix = false;
-			this.matrix.modified = true;
-		}
-		else if(!this.matrix.identityMatrix)
-		{
-			mat4.identity(this.matrix)
-			this.matrix.identityMatrix = true;
-			this.matrix.modified = true;
-		}
+		mat4.perspective(this.matrix, this.fov, this.aspect, this.near, this.far);
+		mat4.rotateX(this.matrix, this.matrix, -this.viewer.rotation[0]);
+		mat4.rotateY(this.matrix, this.matrix, this.viewer.rotation[1]);
+		mat4.rotateZ(this.matrix, this.matrix, this.viewer.rotation[2]);
+		mat4.translate(this.matrix, this.matrix, [ -this.viewer.position[0], -this.viewer.position[1], -this.viewer.position[2] ]);
+		this.matrix.identityMatrix = false;
+		this.matrix.modified = true;
 	} }
 });
 Object.defineProperties(PerspectiveView.prototype = Object.create(View.prototype),
 {
 	construcor: { value: PerspectiveView },
-	camera: { get: function getCamera()
+	fov: { get: function getFov()
 	{
-		return this._camera;
-	}, set: function setCamera(camera)
+		return this._fov.value;
+	}, set: function setFov(fov)
 	{
-		if(this._camera)
-		{
-			this._camera.removeWatcher(this.cameraWatcher);
-			this._camera.position.removeWatcher(this.positionWatcher);
-			this._camera.rotation.removeWatcher(this.rotationWatcher);
-		}
-		if(camera)
-		{
-			this.cameraWatcher = camera.watch(this.requestUpdate.bind(this));
-			this.positionWatcher = camera.position.watch(this.requestUpdate.bind(this));
-			this.rotationWatcher = camera.rotation.watch(this.requestUpdate.bind(this));
-		}
-		else
-		{
-			this.cameraWatcher = undefined;
-			this.positionWatcher = undefined;
-			this.rotationWatcher = undefined;
-			this.requestUpdate();
-		}
-		this._camera = camera; 
+		this._fov.value = fov || Math.PI / 4;
 	} }
 });
 
@@ -2771,8 +2713,10 @@ function PerspectiveView(parameters)
 {
 	parameters = parameters || { };
 	View.call(this, parameters);
+	this._fov = Number.isFinite(parameters.fov) ? new WatchableValue({ value: Math.abs(parameters.fov) }) : parameters._fov instanceof WatchableValue ? parameters._fov : new WatchableValue({ value: Math.PI / 4 });
+	this._fov.watch(this.requestUpdate.bind(this));
+	this._fov.parent = this;
 	this.update[10] = PerspectiveView.update.bind(this);
-	this.camera = parameters.camera;
 }
 
 Object.defineProperties(OrthographicView,
@@ -2839,13 +2783,9 @@ function OrthographicView(parameters)
 	this.top = parameters.top || parameters.vertical / 2 || 1;
 }
 
-Object.defineProperties(Player.prototype = Object.create(Object.prototype),
+Object.defineProperties(Player.prototype = Object.create(MovingObject.prototype),
 {
 	constructor: { value: Player },
-	updateCameraPosition: { value: function updateCameraPosition()
-	{
-		this.camera.position.set(this.position.copy().add(this.headOffset));
-	} },
 	instantControls: { value: function instantControls(params)
 	{
 		var mouse = params.mouse;
@@ -2858,8 +2798,8 @@ Object.defineProperties(Player.prototype = Object.create(Object.prototype),
 		}
 		if(!isNaN(lookAngle))
 		{
-			this.camera.rotation[0] = Math.max(Math.min(this.camera.rotation[0] + Math.cos(lookAngle) * Math.rad(lookDistance), Math.HALFPI), -Math.HALFPI);
-			this.camera.rotation[1] += Math.sin(lookAngle) * Math.rad(lookDistance);
+			this.rotation[0] = Math.max(Math.min(this.rotation[0] + Math.cos(lookAngle) * Math.rad(lookDistance), Math.HALFPI), -Math.HALFPI);
+			this.rotation[1] += Math.sin(lookAngle) * Math.rad(lookDistance);
 		}
 	} },
 	controlsLoop: { value: function controlsLoop(timestamps, last, now)
@@ -2885,8 +2825,8 @@ Object.defineProperties(Player.prototype = Object.create(Object.prototype),
 			}
 			if(!isNaN(lookAngle))
 			{
-				this.camera.rotation[0] = Math.max(Math.min(this.camera.rotation[0] + Math.cos(lookAngle) * Math.rad(lookDistance), Math.HALFPI), -Math.HALFPI);
-				this.camera.rotation[1] += Math.sin(lookAngle) * Math.rad(lookDistance);
+				this.rotation[0] = Math.max(Math.min(this.rotation[0] + Math.cos(lookAngle) * Math.rad(lookDistance), Math.HALFPI), -Math.HALFPI);
+				this.rotation[1] += Math.sin(lookAngle) * Math.rad(lookDistance);
 			}
 			var moveAngle = NaN;
 			var moveDistance = 1;
@@ -2904,8 +2844,8 @@ Object.defineProperties(Player.prototype = Object.create(Object.prototype),
 			}
 			if(!isNaN(moveAngle))
 			{
-				positionOffset[0] += Math.sin(this.camera.rotation[1] + moveAngle) * timestamp.time / 1000 * moveDistance;
-				positionOffset[2] -= Math.cos(this.camera.rotation[1] + moveAngle) * timestamp.time / 1000 * moveDistance;
+				positionOffset[0] += Math.sin(this.rotation[1] + moveAngle) * timestamp.time / 1000 * moveDistance;
+				positionOffset[2] -= Math.cos(this.rotation[1] + moveAngle) * timestamp.time / 1000 * moveDistance;
 			}
 			if(keyboard)
 			{
@@ -2919,12 +2859,8 @@ function Player(parameters)
 {
 	parameters = parameters || { };
 	this.level = parameters.level;
-	this.camera = new Camera(parameters.camera);
-	this.position = parameters.position instanceof Vector[3] ? parameters.position : new Vector[3](parameters.position);
-	this.headOffset = parameters.eyeOffset instanceof Vector[3] ? parameters.headOffset : new Vector[3](parameters.eyeOffset || [ 0, 1, 0 ]);
-	this.position.watch(this.updateCameraPosition.bind(this));
-	this.headOffset.watch(this.updateCameraPosition.bind(this));
-	this.headRotation = parameters.headRotation instanceof RotationVector[3] ? parameters.headRotation : new RotationVector[3](parameters.headRotation);
+	this.eyeOffset = parameters.eyeOffset instanceof Vector[3] ? parameters.eyeOffset: new Vector[3](parameters.eyeOffset || [ 0, 1, 0 ]);
+	MovingObject.call(this, Object.assign({ game: this.level.game, position: new AdditiveVector[3]([ this.eyeOffset ]) }, parameters));
 	this.controlsLoopWrapped = this.controlsLoop.bind(this);
 }
 
@@ -3062,7 +2998,7 @@ function Level(parameters)
 	parameters.player.level = this;
 	this.player = new Player(parameters.player);
 	this.controls.requiresPointerLock = true;
-	this.view = parameters.view instanceof PerspectiveView ? parameters.view : new PerspectiveView(Object.assign(parameters.view || { }, { camera: this.player.camera }));
+	this.view = parameters.view instanceof PerspectiveView ? parameters.view : new PerspectiveView(Object.assign(parameters.view || { }, { viewer: this.player }));
 }
 
 Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prototype),
