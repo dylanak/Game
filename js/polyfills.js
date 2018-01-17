@@ -127,7 +127,7 @@ Array.from = Array.from || (function ()
 	originalIsArray = Array.isArray;
 	Array.isArray = function(i)
 	{
-		return originalIsArray(i) || i instanceof Vector || i instanceof Color;
+		return originalIsArray(i) || i instanceof Vector[0] || i instanceof Color;
 	}
 }
 Array.prototype.fill = Array.prototype.fill || function(value)

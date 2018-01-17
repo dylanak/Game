@@ -297,184 +297,133 @@ function Updatable(parameters)
 	this.update[-1] = Updatable.update.bind(this);
 }
 
+var Vector = [ ];
+
+Vector[0] = function BaseVector(parameters)
+{
+	Watchable.call(this, parameters);
+};
 Object.defineProperties(Vector,
 {
-	neverNaN: { value: function nevenNaN(number)
+	neverNaN: { value: function neverNaN(value)
 	{
-		return number || 0;
-	} }
+		return value || 0;
+	} },
+	elements: { value: [ "x", "y", "z", "w" ] }
 });
-Object.defineProperties(Vector.prototype = Object.create(Watchable.prototype),
+Object.defineProperties(Vector[0].prototype = Object.create(Watchable.prototype),
 {
-	constructor: { value: Vector },
-	0: { get: function getX()
-	{
-		return this.x.value;
-	}, set: function setX(x)
-	{
-		this.x.value = x;
-	} },
-	length: { value: 1 }
+	constructor: { value: Vector[0] }
 });
-
-function Vector(parameters)
+Vector.elements.forEach(function addVectorIWithElementI(elementName, elementIndex)
 {
-	Watchable.call(this, parameters = parameters || { });
-	this.x = Array.isArray(parameters) ? new WatchableValue({ value: parameters[0] }) : Number.isFinite(parameters.x) ? new WatchableValue({ value: parameters.x }) : parameters.x instanceof WatchableValue ? parameters.x : new WatchableValue();
-	this.x.callback = Vector.neverNaN;
-	this.x.parent = this;
-}
-
-Object.defineProperties(Vector2.prototype = Object.create(Vector.prototype),
-{
-	constructor: { value: Vector2 },
-	copy: { value: function copy()
+	var watchableElementName = "_" + elementName;
+	var iMinus1VectorPrototype = Vector[elementIndex];
+	var vectorIPrototype = function VectorI(parameters)
 	{
-		return new Vector2([ this[0], this[1] ]);
-	} },
-	add: { value: function add()
+		parameters = parameters || { };
+		iMinus1VectorPrototype.call(this, parameters);
+		value = this[watchableElementName] = parameters.length ? new WatchableValue({ value: parameters[elementIndex] }) : Number.isFinite(parameters[elementName]) ? new WatchableValue({ value: parameters[elementName] }) : parameters[watchableElementName] instanceof WatchableValue ? parameters[watchableElementName] : new WatchableValue();
+		value.callback = Vector.neverNaN;
+		value.parent = this;
+	};
+	var addCallbacks = [ ];
+	var setCallbacks = [ ];
+	for(let i = 0; i <= elementIndex; i++)
 	{
-		var args = arguments;
-		if(Array.isArray(args[0]))
-			args = args[0];
-		if(args[0])
-			this.x._value = this.x.callback(this[0] + args[0]);
-		this.x.notifyWatchers();
-		if(args[1])
-			this.y._value = this.y.callback(this[1] + args[1]);
-		this.y.notifyWatchers();
-		this.notifyWatchers();
-		return this;
-	} },
-	set: { value: function set()
+		let eln = Vector.elements[i];
+		let weln = "_" + eln;
+		addCallbacks[i] = function addElementInVector(args, vector)
+		{
+			if(args[i])
+			{
+				vector[weln]._value += args[i];
+				vector[weln].notifyWatchers();
+			}
+		};
+		setCallbacks[i] = function setElementInVector(args, vector)
+		{
+			if(args[i])
+			{
+				vector[weln]._value = args[i];
+				vector[weln].notifyWatchers();
+			}
+		};
+	}
+	var vectorIProperties =
 	{
-		var args = arguments;
-		if(Array.isArray(args[0]))
-			args = args[0];
-		this.x._value = this.x.callback(args[0]);
-		this.x.notifyWatchers();
-		this.y._value = this.y.callback(args[1]);
-		this.y.notifyWatchers();
-		this.notifyWatchers();
-		return this;
-	} },
-	1: { get: function getY()
+		constructor: { value: vectorIPrototype },
+		copy: { value: function copy()
+		{
+			return new this.__proto__.constructor(Array.from(this));
+		} },
+		add: { value: function add()
+		{
+			var args = arguments;
+			if((args[0] || [ ]).length)
+				args = args[0];
+			addCallbacks.forEach(function callAddCallback(addCallback)
+			{
+				addCallback(args, this);
+			}, this);
+			this.notifyWatchers();
+			return this;
+		} },
+		set: { value: function set()
+		{
+			var args = arguments;
+			if((args[0] || [ ]).length)
+				args = args[0];
+			setCallbacks.forEach(function callSetCallback(setCallback)
+			{
+				setCallback(args, this);
+			}, this);
+			this.notifyWatchers();
+			return this;
+		} },
+		length: { value: elementIndex + 1 }
+	};
+	vectorIProperties[elementIndex] = vectorIProperties[elementName] = { get: function getElement()
 	{
-		return this.y.value;
-	}, set: function setY(y)
+		return this[watchableElementName].value;
+	}, set: function setElement(element)
 	{
-		this.y.value = y;
-	} },
-	length: { value: 2 }
-});
-
-function Vector2(parameters)
-{
-	Vector.call(this, parameters = parameters || { });
-	this.y = Array.isArray(parameters) ? new WatchableValue({ value: parameters[1] }) : Number.isFinite(parameters.y) ? new WatchableValue({ value: parameters.y }) : parameters.y instanceof WatchableValue ? parameters.y : new WatchableValue();
-	this.y.callback = Vector.neverNaN;
-	this.y.parent = this;
-}
-
-Object.defineProperties(Vector3.prototype = Object.create(Vector2.prototype), 
-{
-	constructor: { value: Vector3 },
-	copy: { value: function copy()
-	{
-		return new Vector3([ this[0], this[1], this[2] ]);
-	} },
-	add: { value: function add()
-	{
-		var args = arguments;
-		if(Array.isArray(args[0]))
-			args = args[0];
-		if(args[0])
-			this.x._value = this.x.callback(this[0] + args[0]);
-		this.x.notifyWatchers();
-		if(args[1])
-			this.y._value = this.y.callback(this[1] + args[1]);
-		this.y.notifyWatchers();
-		if(args[2])
-			this.z._value = this.z.callback(this[2] + args[2]);
-		this.z.notifyWatchers();
-		this.notifyWatchers();
-		return this;
-	} },
-	set: { value: function set()
-	{
-		var args = arguments;
-		if(Array.isArray(args[0]))
-			args = args[0];
-		this.x._value = this.x.callback(args[0]);
-		this.x.notifyWatchers();
-		this.y._value = this.y.callback(args[1]);
-		this.y.notifyWatchers();
-		this.z._value = this.z.callback(args[2]);
-		this.z.notifyWatchers();
-		this.notifyWatchers();
-		return this;
-	} },
-	2: { get: function getZ()
-	{
-		return this.z.value;
-	}, set: function setZ(z)
-	{
-		this.z.value = z;
-	} },
-	length: { value: 3 }
+		this[watchableElementName].value = element;
+	} };
+	Object.defineProperties(vectorIPrototype.prototype = Object.create(iMinus1VectorPrototype.prototype), vectorIProperties);
+	Vector[elementIndex + 1] = vectorIPrototype;
 });
 
-function Vector3(parameters)
-{
-	Vector2.call(this, parameters = parameters || { });
-	this.z = Array.isArray(parameters) ? new WatchableValue({ value: parameters[2] }) : Number.isFinite(parameters.z) ? new WatchableValue({ value: parameters.z }) : parameters.z instanceof WatchableValue ? parameters.z : new WatchableValue();
-	this.z.callback = Vector.neverNaN;
-	this.z.parent = this;
-}
+var RotationVector = [ ];
 
-Object.defineProperties(AdditiveVector3.prototype = Object.create(Watchable.prototype),
+Object.defineProperties(RotationVector,
 {
-	constructor: { value: AdditiveVector3 }
+	callbackSetters: { value: [ ] }
 });
-
-function AdditiveVector3(parameters)
+Vector.forEach(function addRotationVectorI(vectorIPrototype, index)
 {
-	
-}
-
-Object.defineProperties(RotationVector.prototype = Object.create(Vector.prototype),
-{
-	constructor: { value: RotationVector }
+	var elementName = Vector.elements[index - 1];
+	var watchableElementName = "_" + elementName;
+	if(elementName)
+		RotationVector.callbackSetters.push(function(vector)
+		{
+			vector[watchableElementName].callback = wrapRadians;
+		});
+	var callbackSetters = Array.from(RotationVector.callbackSetters);
+	var rotationVectorIPrototype = function RotationVectorI(parameters)
+	{
+		vectorIPrototype.call(this, parameters);
+		callbackSetters.forEach(function callCallbackSetter(callbackSetter)
+		{
+			callbackSetter(this);
+		}, this);
+	};
+	Object.defineProperties(rotationVectorIPrototype.prototype = Object.create(vectorIPrototype.prototype),
+	{
+		constructor: { value: rotationVectorIPrototype }
+	});
+	RotationVector[index] = rotationVectorIPrototype;
 });
-
-function RotationVector(parameters)
-{
-	Vector.call(this, parameters);
-	this.x.callback = wrapRadians;
-}
-
-
-Object.defineProperties(RotationVector2.prototype = Object.create(Vector2.prototype),
-{
-	constructor: { value: RotationVector2 }
-});
-
-function RotationVector2(parameters)
-{
-	Vector2.call(this, parameters);
-	this.x.callback = this.y.callback = wrapRadians;
-}
-
-Object.defineProperties(RotationVector3.prototype = Object.create(Vector3.prototype),
-{
-	constructor: { value: RotationVector3 }
-});
-
-function RotationVector3(parameters)
-{
-	Vector3.call(this, parameters);
-	this.x.callback = this.y.callback = this.z.callback = wrapRadians;
-}
 
 Object.defineProperties(Color,
 {
@@ -581,8 +530,8 @@ function MovingObject(parameters)
 {
 	parameters = parameters || { };
 	Updatable.call(this, parameters);
-	this.position = parameters.position instanceof Vector3 ? parameters.position : new Vector3(parameters.position);
-	this.rotation = parameters.rotation instanceof RotationVector3 ? parameters.rotation : new RotationVector3(parameters.rotation);
+	this.position = parameters.position instanceof Vector[3] ? parameters.position : new Vector[3](parameters.position);
+	this.rotation = parameters.rotation instanceof RotationVector[3] ? parameters.rotation : new RotationVector[3](parameters.rotation);
 }
 
 Object.defineProperties(Camera.prototype = Object.create(Watchable.prototype),
@@ -621,8 +570,8 @@ function Camera(parameters)
 {
 	parameters = parameters || { };
 	Watchable.call(this, parameters);
-	this.position = new Vector3(parameters.position);
-	this.rotation = new RotationVector3(parameters.rotation);
+	this.position = new Vector[3](parameters.position);
+	this.rotation = new RotationVector[3](parameters.rotation);
 	this.fov = parameters.fov;
 }
 
@@ -2758,11 +2707,11 @@ function Player(parameters)
 	parameters = parameters || { };
 	this.level = parameters.level;
 	this.camera = new Camera(parameters.camera);
-	this.position = parameters.position instanceof Vector3 ? parameters.position : new Vector3(parameters.position);
-	this.headOffset = parameters.eyeOffset instanceof Vector3 ? parameters.headOffset : new Vector3(parameters.eyeOffset || [ 0, 1, 0 ]);
+	this.position = parameters.position instanceof Vector[3] ? parameters.position : new Vector[3](parameters.position);
+	this.headOffset = parameters.eyeOffset instanceof Vector[3] ? parameters.headOffset : new Vector[3](parameters.eyeOffset || [ 0, 1, 0 ]);
 	this.position.watch(this.updateCameraPosition.bind(this));
 	this.headOffset.watch(this.updateCameraPosition.bind(this));
-	this.headRotation = parameters.headRotation instanceof RotationVector3 ? parameters.headRotation : new RotationVector3(parameters.headRotation);
+	this.headRotation = parameters.headRotation instanceof RotationVector[3] ? parameters.headRotation : new RotationVector[3](parameters.headRotation);
 	this.controlsLoopWrapped = this.controlsLoop.bind(this);
 }
 
@@ -2781,8 +2730,8 @@ function Light(parameters)
 	Watchable.call(this, parameters);
 	this.ambience = Number.isFinite(parameters.ambience) ? parameters.ambience : 1;
 	this.attenuation = Number.isFinite(parameters.attenuation) ? parameters.attenuation : 0;
-	this.position = parameters.position instanceof Vector3 ? parameters.position : new Vector3(parameters.position);
-	this.direction = parameters.direction instanceof Vector3 ? parameters.direction : new Vector3(parameters.direction);
+	this.position = parameters.position instanceof Vector[3] ? parameters.position : new Vector[3](parameters.position);
+	this.direction = parameters.direction instanceof Vector[3] ? parameters.direction : new Vector[3](parameters.direction);
 	this.color = parameters.color instanceof Color ? parameters.color : new Color(parameters.color || [ 1, 1, 1 ]);
 	this.orthographic = parameters.orthographic == false ? false : true;
 	this.intensity = Number.isFinite(parameters.intensity) ? parameters.intensity : 1;
