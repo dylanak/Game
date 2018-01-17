@@ -431,104 +431,208 @@ Vector.forEach(function addRotationVectorI(vectorIPrototype, index)
 });
 
 var AdditiveVector = [ ];
+
+Object.defineProperties(AdditiveVector,
+{
+	baseValueSetters: { value: [ ] },
+	baseValueWatchers: { value: [ ] },
+	watchableValueSetters: { value: [ ] },
+	childVectorWatchers: { value: [ ] }
+});
 Vector.forEach(function addAdditiveVectorI(vectorIPrototype, index)
 {
 	var elementName = Vector.elements[index - 1];
 	var watchableElementName = "_" + elementName;
-	var childVectorElementWatcher = function changeElementByNewMinusOld(newWatchable, old)
+	var baseElementName = "base" + (elementName ? elementName.toUpperCase() : undefined);
+	if(elementName)
 	{
-		this[watchableElementName]._value += newWatchable.value - old || 0;
-		this[watchableElementName].notifyWatchers();
-		this.notifyWatchers();
-	};
-	var addElementsFromChildVectors = function addElementsFromChildVectors()
-	{
-		var value = 0;
-		(this.childVectors || [ ]).forEach(function addElementFromChildVector(childVector)
+		var childVectorElementWatcher = function changeElementByNewMinusOld(newWatchable, old)
 		{
-			value += (childVector[elementName] || 0);
+			this[watchableElementName]._value += newWatchable.value - old || 0;
+			this[watchableElementName].notifyWatchers();
+			this.notifyWatchers();
+		};
+		var addElementsFromChildVectors = function addElementsFromChildVectors()
+		{
+			var value = this[baseElementName].value;
+			(this.childVectors || [ ]).forEach(function addElementFromChildVector(childVector)
+			{
+				value += (childVector[elementName] || 0);
+			});
+			return value;
+		};
+		AdditiveVector.baseValueSetters.push(function setBaseValue(vector, parameters)
+		{
+			baseValue = vector[baseElementName] = Number.isFinite(parameters[elementName]) ? new WatchableValue({ value: parameters[elementName] }) : parameters[baseElementName] instanceof WatchableValue ? parameters[baseElementName] : new WatchableValue();
+			baseValue.callback = Vector.neverNaN;
 		});
-		return value;
-	};
-	var additiveVectorIMinusOne = AdditiveVector[index - 1];
-	var additiveVectorIPrototype = additiveVectorIMinusOne ? function AdditiveVectorI(parameters)
+		AdditiveVector.watchableValueSetters.push(function setWatchableValue(vector)
+		{
+			vector[watchableElementName] = new WatchableValue({ parent: vector, callback: addElementsFromChildVectors.bind(vector) });
+		});
+		AdditiveVector.baseValueWatchers.push(function watchBaseValue(vector)
+		{
+			vector[baseElementName].watch(childVectorElementWatcher.bind(vector));
+		});
+		AdditiveVector.childVectorWatchers.push(function watchChildVectorElement(vector, childVector)
+		{
+			childVector[watchableElementName].watch(childVectorElementWatcher.bind(vector));
+		});
+	}
+	var baseValueSetters = Array.from(AdditiveVector.baseValueSetters);
+	var watchableValueSetters = Array.from(AdditiveVector.watchableValueSetters);
+	var baseValueWatchers = Array.from(AdditiveVector.baseValueWatchers);
+	var childVectorWatchers = Array.from(AdditiveVector.childVectorWatchers);
+	var additiveVectorIPrototype = function AdditiveVectorI(parameters)
 	{
 		parameters = parameters || { };
-		additiveVectorIMinusOne.call(this, parameters);
-		this[watchableElementName] = new WatchableValue({ parent: this, callback: addElementsFromChildVectors.bind(this) });
-		this.childVectors.forEach(function watchChildVectorElementI(childVector)
-		{
-			childVector[watchableElementName].watch(childVectorElementWatcher.bind(this));
-		}, this);
-	} : function BaseAdditiveVectorI(parameters)
-	{
-		Watchable.call(this, parameters);
+		vectorIPrototype.call(this, parameters);
 		var childVectors = parameters.childVectors;
 		if(!parameters.childVectors && parameters.length && parameters[0] instanceof vectorIPrototype)
 			childVectors = parameters;
 		this.childVectors = childVectors;
-	};
+		baseValueSetters.forEach(function callBaseValueSetter(baseValueSetter)
+		{
+			baseValueSetter(this, parameters);
+		}, this);
+		watchableValueSetters.forEach(function callWatchableValueSetter(watchableValueSetter)
+		{
+			watchableValueSetter(this);
+		}, this);
+		baseValueWatchers.forEach(function callBaseValueWatcher(baseValueWatcher)
+		{
+			baseValueWatcher(this);
+		}, this);
+		this.childVectors.forEach(function watchChildVectorElements(childVector)
+		{
+			childVectorWatchers.forEach(function callChildVectorWatcher(childVectorWatcher)
+			{
+				childVectorWatcher(this, childVector);
+			}, this);
+		}, this);
+	}
 	var additiveVectorProperties =
 	{
 		constructor: { value: additiveVectorIPrototype }
 	};
-	if(elementName)
-		additiveVectorProperties[index - 1] = additiveVectorProperties[elementName] = { get: function getElement()
+	for(let element = 0; element < index; element++)
+	{
+		let eln = Vector.elements[element];
+		let weln = "_" + eln;
+		let beln = "base" + eln.toUpperCase();
+		additiveVectorProperties[element] = additiveVectorProperties[eln] = { get: function getElement()
 		{
-			return this[watchableElementName].value;
+			return this[weln].value;
+		},
+		set: function setElement(value)
+		{
+			this[beln].value = value;
 		} }
-	Object.defineProperties(additiveVectorIPrototype.prototype = Object.create((additiveVectorIMinusOne || Watchable).prototype), additiveVectorProperties);
+	}
+	Object.defineProperties(additiveVectorIPrototype.prototype = Object.create(vectorIPrototype.prototype), additiveVectorProperties);
 	AdditiveVector[index] = additiveVectorIPrototype;
 });
 
 var MultiplicativeVector = [ ];
+
+Object.defineProperties(MultiplicativeVector,
+{
+	baseValueSetters: { value: [ ] },
+	baseValueWatchers: { value: [ ] },
+	watchableValueSetters: { value: [ ] },
+	childVectorWatchers: { value: [ ] }
+});
 Vector.forEach(function addMultiplicativeVectorI(vectorIPrototype, index)
 {
 	var elementName = Vector.elements[index - 1];
 	var watchableElementName = "_" + elementName;
-	var childVectorElementWatcher = function changeElementByNewOverOld(newWatchable, old)
+	var baseElementName = "base" + (elementName ? elementName.toUpperCase() : undefined);
+	if(elementName)
 	{
-		this[watchableElementName]._value *= newWatchable.value / old || 1;
-		this[watchableElementName].notifyWatchers();
-		this.notifyWatchers();
-	};
-	var multiplyElementsFromChildVectors = function multiplyElementsFromChildVectors()
-	{
-		var value = 1;
-		(this.childVectors || [ ]).forEach(function multiplyElementFromChildVector(childVector)
+		var childVectorElementWatcher = function changeElementByNewOverOld(newWatchable, old)
 		{
-			value *= (childVector[elementName] || 1);
+			this[watchableElementName]._value *= newWatchable.value / old || 1;
+			this[watchableElementName].notifyWatchers();
+			this.notifyWatchers();
+		};
+		var multiplyElementsFromChildVectors = function multiplyElementsFromChildVectors()
+		{
+			var value = this[baseElementName];
+			(this.childVectors || [ ]).forEach(function multiplyElementFromChildVector(childVector)
+			{
+				value *= (childVector[elementName] || 1);
+			});
+			return value;
+		};
+		MultiplicativeVector.baseValueSetters.push(function setBaseValue(vector, parameters)
+		{
+			baseValue = vector[baseElementName] = Number.isFinite(parameters[elementName]) ? new WatchableValue({ value: parameters[elementName] }) : parameters[baseElementName] instanceof WatchableValue ? parameters[baseElementName] : new WatchableValue();
+			baseValue.callback = Vector.neverNaN;
 		});
-		return value;
-	};
-	var multiplicativeVectorIMinusOne = MultiplicativeVector[index - 1];
-	var multiplicativeVectorIPrototype = multiplicativeVectorIMinusOne ? function MultiplicativeVectorI(parameters)
+		MultiplicativeVector.watchableValueSetters.push(function setWatchableValue(vector)
+		{
+			vector[watchableElementName] = new WatchableValue({ parent: vector, callback: multiplyElementsFromChildVectors.bind(vector) });
+		});
+		MultiplicativeVector.baseValueWatchers.push(function watchBaseValue(vector)
+		{
+			vector[baseElementName].watch(childVectorElementWatcher.bind(vector));
+		});
+		MultiplicativeVector.childVectorWatchers.push(function watchChildVectorElement(vector, childVector)
+		{
+			childVector[watchableElementName].watch(childVectorElementWatcher.bind(vector));
+		});
+	}
+	var baseValueSetters = Array.from(MultiplicativeVector.baseValueSetters);
+	var watchableValueSetters = Array.from(MultiplicativeVector.watchableValueSetters);
+	var baseValueWatchers = Array.from(MultiplicativeVector.baseValueWatchers);
+	var childVectorWatchers = Array.from(MultiplicativeVector.childVectorWatchers);
+	var multiplicativeVectorIPrototype = function MultiplicativeVectorI(parameters)
 	{
 		parameters = parameters || { };
-		multiplicativeVectorIMinusOne.call(this, parameters);
-		this[watchableElementName] = new WatchableValue({ parent: this, callback: multiplyElementsFromChildVectors.bind(this) });
-		this.childVectors.forEach(function watchChildVectorElementI(childVector)
-		{
-			childVector[watchableElementName].watch(childVectorElementWatcher.bind(this));
-		}, this);
-	} : function BaseMultiplicativeVectorI(parameters)
-	{
-		Watchable.call(this, parameters);
+		vectorIPrototype.call(this, parameters);
 		var childVectors = parameters.childVectors;
 		if(!parameters.childVectors && parameters.length && parameters[0] instanceof vectorIPrototype)
 			childVectors = parameters;
 		this.childVectors = childVectors;
-	};
+		baseValueSetters.forEach(function callBaseValueSetter(baseValueSetter)
+		{
+			baseValueSetter(this, parameters);
+		}, this);
+		watchableValueSetters.forEach(function callWatchableValueSetter(watchableValueSetter)
+		{
+			watchableValueSetter(this);
+		}, this);
+		baseValueWatchers.forEach(function callBaseValueWatcher(baseValueWatcher)
+		{
+			baseValueWatcher(this);
+		}, this);
+		this.childVectors.forEach(function watchChildVectorElements(childVector)
+		{
+			childVectorWatchers.forEach(function callChildVectorWatcher(childVectorWatcher)
+			{
+				childVectorWatcher(this, childVector);
+			}, this);
+		}, this);
+	}
 	var multiplicativeVectorProperties =
 	{
 		constructor: { value: multiplicativeVectorIPrototype }
 	};
-	if(elementName)
-		multiplicativeVectorProperties[index - 1] = multiplicativeVectorProperties[elementName] = { get: function getElement()
+	for(let element = 0; element < index; element++)
+	{
+		let eln = Vector.elements[element];
+		let weln = "_" + eln;
+		let beln = "base" + eln.toUpperCase();
+		multiplicativeVectorProperties[element] = multiplicativeVectorProperties[eln] = { get: function getElement()
 		{
-			return this[watchableElementName].value;
+			return this[weln].value;
+		},
+		set: function setElement(value)
+		{
+			this[beln].value = value;
 		} }
-	Object.defineProperties(multiplicativeVectorIPrototype.prototype = Object.create((multiplicativeVectorIMinusOne || Watchable).prototype), multiplicativeVectorProperties);
+	}
+	Object.defineProperties(multiplicativeVectorIPrototype.prototype = Object.create(vectorIPrototype.prototype), multiplicativeVectorProperties);
 	MultiplicativeVector[index] = multiplicativeVectorIPrototype;
 });
 
