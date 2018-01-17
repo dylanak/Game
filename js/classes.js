@@ -556,6 +556,16 @@ function Vector3(parameters)
 	this.z.parent = this;
 }
 
+Object.defineProperties(AdditiveVector3.prototype = Object.create(Watchable.prototype),
+{
+	constructor: { value: AdditiveVector3 }
+});
+
+function AdditiveVector3(parameters)
+{
+	
+}
+
 Object.defineProperties(RotationVector.prototype = Object.create(Vector.prototype),
 {
 	constructor: { value: RotationVector }
@@ -686,6 +696,19 @@ function Color(parameters)
 	this.r.parent = this.g.parent = this.b.parent = this.a.parent = this;
 }
 
+Object.defineProperties(MovingObject.prototype = Object.create(Updatable.prototype),
+{
+	constructor: { value: MovingObject }
+});
+
+function MovingObject(parameters)
+{
+	parameters = parameters || { };
+	Updatable.call(this, parameters);
+	this.position = parameters.position instanceof Vector3 ? parameters.position : new Vector3(parameters.position);
+	this.rotation = parameters.rotation instanceof RotationVector3 ? parameters.rotation : new RotationVector3(parameters.rotation);
+}
+
 Object.defineProperties(Camera.prototype = Object.create(Watchable.prototype),
 {
 	constructor: { value: Camera },
@@ -760,7 +783,6 @@ Object.defineProperties(CollisionMesh.prototype = Object.create(Object.prototype
 
 function CollisionMesh(parameters)
 {
-	
 }
 
 Object.defineProperties(Physics.prototype = Object.create(Object.prototype),
@@ -900,11 +922,9 @@ function GeometryBuilder(parameters)
 		{
 			parameters = parameters || { };
 			this.layer = parameters.layer;
-			Updatable.call(this, Object.assign({ game: this.layer.game }, parameters));
+			MovingObject.call(this, Object.assign({ game: this.layer.game }, parameters));
 			this.update[10] = GeometryBuilder.updateGeometry.bind(this);
 			this.index = this.layer.geometries.push(this) - 1;
-			this.position = parameters.position instanceof Vector3 ? parameters.position : new Vector3(parameters.position);
-			this.rotation = parameters.rotation instanceof Vector3 ? parameters.rotation : new RotationVector3(parameters.rotation);
 			this.texture = parameters.texture instanceof Texture ? parameters.texture : this.layer.game.renderer.textureMap.textures[0];
 			this.position.watch(this.requestUpdate.bind(this));
 			this.rotation.watch(this.requestUpdate.bind(this));
@@ -914,7 +934,7 @@ function GeometryBuilder(parameters)
 			this.cacheTriangle = this.builder.cacheTriangle.bind(this);
 			this.matrix = mat4.identity([ ]);
 		};
-		Object.defineProperties(this.geometryPrototype.prototype = Object.create(Updatable.prototype), Object.assign(
+		Object.defineProperties(this.geometryPrototype.prototype = Object.create(MovingObject.prototype), Object.assign(
 		{
 			constructor: { value: this.geometryPrototype },
 		}, geometryPrototypeProperties));
