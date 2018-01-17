@@ -323,7 +323,7 @@ Vector.elements.forEach(function addVectorIWithElementI(elementName, elementInde
 	{
 		parameters = parameters || { };
 		iMinus1VectorPrototype.call(this, parameters);
-		value = this[watchableElementName] = parameters.length ? new WatchableValue({ value: parameters[elementIndex] }) : Number.isFinite(parameters[elementName]) ? new WatchableValue({ value: parameters[elementName] }) : parameters[watchableElementName] instanceof WatchableValue ? parameters[watchableElementName] : new WatchableValue();
+		value = this[watchableElementName] = parameters.length ? new WatchableValue({ parent: this, callback: Vector.neverNaN, value: parameters[elementIndex] }) : Number.isFinite(parameters[elementName]) ? new WatchableValue({ value: parameters[elementName] }) : parameters[watchableElementName] instanceof WatchableValue ? parameters[watchableElementName] : new WatchableValue();
 		value.callback = Vector.neverNaN;
 		value.parent = this;
 	};
@@ -355,7 +355,7 @@ Vector.elements.forEach(function addVectorIWithElementI(elementName, elementInde
 		constructor: { value: vectorIPrototype },
 		copy: { value: function copy()
 		{
-			return new this.__proto__.constructor(Array.from(this));
+			return new vectorIPrototype(Array.from(this));
 		} },
 		add: { value: function add()
 		{
@@ -405,7 +405,7 @@ Vector.forEach(function addRotationVectorI(vectorIPrototype, index)
 	var elementName = Vector.elements[index - 1];
 	var watchableElementName = "_" + elementName;
 	if(elementName)
-		RotationVector.callbackSetters.push(function(vector)
+		RotationVector.callbackSetters.push(function setCallback(vector)
 		{
 			vector[watchableElementName].callback = wrapRadians;
 		});
@@ -420,9 +420,116 @@ Vector.forEach(function addRotationVectorI(vectorIPrototype, index)
 	};
 	Object.defineProperties(rotationVectorIPrototype.prototype = Object.create(vectorIPrototype.prototype),
 	{
-		constructor: { value: rotationVectorIPrototype }
+		constructor: { value: rotationVectorIPrototype },
+		copy: { value: function copy()
+		{
+			return new rotationVectorIPrototype(Array.from(this));
+		} }
+
 	});
 	RotationVector[index] = rotationVectorIPrototype;
+});
+
+var AdditiveVector = [ ];
+Vector.forEach(function addAdditiveVectorI(vectorIPrototype, index)
+{
+	var elementName = Vector.elements[index - 1];
+	var watchableElementName = "_" + elementName;
+	var childVectorElementWatcher = function changeElementByNewMinusOld(newWatchable, old)
+	{
+		this[watchableElementName]._value += newWatchable.value - old || 0;
+		this[watchableElementName].notifyWatchers();
+		this.notifyWatchers();
+	};
+	var addElementsFromChildVectors = function addElementsFromChildVectors()
+	{
+		var value = 0;
+		(this.childVectors || [ ]).forEach(function addElementFromChildVector(childVector)
+		{
+			value += (childVector[elementName] || 0);
+		});
+		return value;
+	};
+	var additiveVectorIMinusOne = AdditiveVector[index - 1];
+	var additiveVectorIPrototype = additiveVectorIMinusOne ? function AdditiveVectorI(parameters)
+	{
+		parameters = parameters || { };
+		additiveVectorIMinusOne.call(this, parameters);
+		this[watchableElementName] = new WatchableValue({ parent: this, callback: addElementsFromChildVectors.bind(this) });
+		this.childVectors.forEach(function watchChildVectorElementI(childVector)
+		{
+			childVector[watchableElementName].watch(childVectorElementWatcher.bind(this));
+		}, this);
+	} : function BaseAdditiveVectorI(parameters)
+	{
+		Watchable.call(this, parameters);
+		var childVectors = parameters.childVectors;
+		if(!parameters.childVectors && parameters.length && parameters[0] instanceof vectorIPrototype)
+			childVectors = parameters;
+		this.childVectors = childVectors;
+	};
+	var additiveVectorProperties =
+	{
+		constructor: { value: additiveVectorIPrototype }
+	};
+	if(elementName)
+		additiveVectorProperties[index - 1] = additiveVectorProperties[elementName] = { get: function getElement()
+		{
+			return this[watchableElementName].value;
+		} }
+	Object.defineProperties(additiveVectorIPrototype.prototype = Object.create((additiveVectorIMinusOne || Watchable).prototype), additiveVectorProperties);
+	AdditiveVector[index] = additiveVectorIPrototype;
+});
+
+var MultiplicativeVector = [ ];
+Vector.forEach(function addMultiplicativeVectorI(vectorIPrototype, index)
+{
+	var elementName = Vector.elements[index - 1];
+	var watchableElementName = "_" + elementName;
+	var childVectorElementWatcher = function changeElementByNewOverOld(newWatchable, old)
+	{
+		this[watchableElementName]._value *= newWatchable.value / old || 1;
+		this[watchableElementName].notifyWatchers();
+		this.notifyWatchers();
+	};
+	var multiplyElementsFromChildVectors = function multiplyElementsFromChildVectors()
+	{
+		var value = 1;
+		(this.childVectors || [ ]).forEach(function multiplyElementFromChildVector(childVector)
+		{
+			value *= (childVector[elementName] || 1);
+		});
+		return value;
+	};
+	var multiplicativeVectorIMinusOne = MultiplicativeVector[index - 1];
+	var multiplicativeVectorIPrototype = multiplicativeVectorIMinusOne ? function MultiplicativeVectorI(parameters)
+	{
+		parameters = parameters || { };
+		multiplicativeVectorIMinusOne.call(this, parameters);
+		this[watchableElementName] = new WatchableValue({ parent: this, callback: multiplyElementsFromChildVectors.bind(this) });
+		this.childVectors.forEach(function watchChildVectorElementI(childVector)
+		{
+			childVector[watchableElementName].watch(childVectorElementWatcher.bind(this));
+		}, this);
+	} : function BaseMultiplicativeVectorI(parameters)
+	{
+		Watchable.call(this, parameters);
+		var childVectors = parameters.childVectors;
+		if(!parameters.childVectors && parameters.length && parameters[0] instanceof vectorIPrototype)
+			childVectors = parameters;
+		this.childVectors = childVectors;
+	};
+	var multiplicativeVectorProperties =
+	{
+		constructor: { value: multiplicativeVectorIPrototype }
+	};
+	if(elementName)
+		multiplicativeVectorProperties[index - 1] = multiplicativeVectorProperties[elementName] = { get: function getElement()
+		{
+			return this[watchableElementName].value;
+		} }
+	Object.defineProperties(multiplicativeVectorIPrototype.prototype = Object.create((multiplicativeVectorIMinusOne || Watchable).prototype), multiplicativeVectorProperties);
+	MultiplicativeVector[index] = multiplicativeVectorIPrototype;
 });
 
 Object.defineProperties(Color,
