@@ -1781,7 +1781,7 @@ Object.defineProperties(TextureMap,
 Object.defineProperties(TextureMap.prototype = Object.create(Object.prototype),
 {
 	constructor: { value: TextureMap },
-	loadTextures: { value: function loadTextures(imageLocations)
+	loadTextures: { value: function loadTextures(imageLocations, readyFunction)
 	{
 		var ret = [ ];
 		var textures = Array.from(this.textures);
@@ -1790,7 +1790,10 @@ Object.defineProperties(TextureMap.prototype = Object.create(Object.prototype),
 		{
 			loadedImages++;
 			if(loadedImages == textures.length)
-				this.restitchTextures(textures);
+				setTimeout(function delayedRestitchTextures()
+				{
+					this.restitchTextures(textures, readyFunction.bind(undefined, ret));
+				}.bind(this), 0);
 		}.bind(this);
 		imageLocations.forEach(function requestTexture(imageLocation)
 		{
@@ -1825,7 +1828,7 @@ Object.defineProperties(TextureMap.prototype = Object.create(Object.prototype),
 			}.bind(this), 0);
 		return ret;
 	} },
-	restitchTextures: { value: function restitchTextures(textures)
+	restitchTextures: { value: function restitchTextures(textures, readyFunction)
 	{
 		textures.sort(TextureMap.textureComparator);
 		var stitchedPixels = 0;
@@ -1834,7 +1837,7 @@ Object.defineProperties(TextureMap.prototype = Object.create(Object.prototype),
 			stitchedPixels += texture.image.width * texture.image.height;
 		});
 		var textureUVs;
-		var i = Math.ceil(Math.log2(stitchedPixels));
+		var i = Math.ceil(Math.log2(Math.sqrt(stitchedPixels)));
 		for(; Math.pow(2, i) < Infinity && !textureUVs;)
 			textureUVs = TextureMap.calculateTextureUVs(Math.pow(2, ++i), textures);
 		var stitchCanvas = document.createElement("canvas");
@@ -1848,14 +1851,19 @@ Object.defineProperties(TextureMap.prototype = Object.create(Object.prototype),
 			{
 				return element / Math.pow(2, i);
 			});
-			texture.notifyWatchers();
 		}, this);
+		this.length = textureUVs.length;
 		this.stitched.src = stitchCanvas.toDataURL();
 		this.stitched.addEventListener("load", this.onStichedLoad = function onStitchedTextureMapLoad()
 		{
 			this.stitched.removeEventListener("load", this.onStitchedLoad);
 			this.onStitchedLoad = undefined;
 			this.renderer.bindTextureMap();
+			(readyFunction || emptyFunction)();
+			this.textures.forEach(function notifyTextureOfUpdate(texture)
+			{
+				texture.notifyWatchers();
+			});
 		}.bind(this));
 	} }
 });
@@ -1883,6 +1891,7 @@ function TextureMap(parameters)
 		this.renderer.bindTextureMap();
 	}.bind(this));
 	this[0] = [ 0, 0, 1, 1 ];
+	this.length = 1;
 }
 
 Object.defineProperties(GeometryAllocation.prototype = Object.create(Object.prototype), 
@@ -2889,7 +2898,7 @@ function Light(parameters)
 Object.defineProperties(Layer.prototype = Object.create(Watchable.prototype),
 {
 	constructor: { value: Layer },
-	addGeometry: { value: function addGeometry(name, position, rotation, properties)
+	addGeometry: { value: function addGeometry(name, position, rotation, texture, properties)
 	{
 		if(this.game.geometryBuilders[name])
 		{
@@ -2898,7 +2907,7 @@ Object.defineProperties(Layer.prototype = Object.create(Watchable.prototype),
 			{
 				propertyValues.push(entry[1]);
 			});
-			return this.game.geometryBuilders[name]({ layer: this, position: position, rotation: rotation, propertyValues: propertyValues });
+			return this.game.geometryBuilders[name]({ layer: this, position: position, rotation: rotation, texture: texture, propertyValues: propertyValues });
 		}
 		else
 			console.error("No such geometry with the name \"{0}\"".format(name));
