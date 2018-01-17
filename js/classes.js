@@ -181,46 +181,47 @@ function ElementFocusEventListener(parameters)
 Object.defineProperties(Watcher.prototype = Object.create(Object.prototype),
 {
 	constructor: { value: Watcher },
-	watchable: { set: function setWatchable(watchable)
+	watching: { get: function getWatching()
 	{
-		if(this.parameters[0] != watchable)
+		return this._watching;
+	}, set: function setWatching(watching)
+	{
+		if(this.watching != watching)
 		{
-			if(this.parameters[0])
-				this.parameters[0].removeWatcher(this);
-			this.parameters[0] = watchable;
-			watchable.addWatcher(this);
+			if(this.watching)
+				this.watching.removeWatcher(this);
+			this._watching = watching;
+			this.watching.addWatcher(this);
 			this.notify();
-			return true;
+
 		}
-		return false;
 	} },
-	notify: { value: function notify()
+	notify: { value: function notify(oldValue)
 	{
-		this.func.apply(this.thisArg, this.parameters);
+		this.func(this.watching, oldValue);
 	} }
 });
 
-function Watcher(watchable, func, thisArg, parameters)
+function Watcher(func, watching)
 {
 	this.func = func;
-	this.thisArg = thisArg;
-	this.parameters = [ undefined ].concat(parameters);
-	this.watchable = watchable;
 }
 
 Object.defineProperties(Watchable.prototype = Object.create(Object.prototype),
 {
 	constructor: { value: Watchable },
-	watch: { value: function watch(func, thisArg, parameters)
+	watch: { value: function watch(func)
 	{
-		return new Watcher(this, func, thisArg, parameters || [ ]);
+		var watcher = new Watcher(func);
+		watcher.watching = this;
+		return watcher;
 	} },
 	addWatcher: { value: function addWatcher(watcher)
 	{
 		if(!this.watchers.includes(watcher))
 		{
 			this.watchers.push(watcher);
-			watcher.watchable = this;
+			watcher.watching = this;
 		}
 	} },
 	removeWatcher: { value: function removeWatcher(watcher)
@@ -232,11 +233,11 @@ Object.defineProperties(Watchable.prototype = Object.create(Object.prototype),
 			watcher.watchable = undefined;
 		}
 	} },
-	notifyWatchers: { value: function notifyWatchers()
+	notifyWatchers: { value: function notifyWatchers(oldValue)
 	{
 		(this.watchers || [ ]).forEach(function notifyWatcher(watcher)
 		{
-			watcher.notify(this);
+			watcher.notify(oldValue);
 		}, this);
 	} }
 });
@@ -251,13 +252,6 @@ function Watchable(parameters)
 	});
 }
 
-Object.defineProperties(WatchableValue,
-{
-	returnUnmodified: { value: function returnUnmodified(value)
-	{
-		return value;
-	} }
-});
 Object.defineProperties(WatchableValue.prototype = Object.create(Watchable.prototype),
 {
 	constructor: { value: WatchableValue },
@@ -274,8 +268,9 @@ Object.defineProperties(WatchableValue.prototype = Object.create(Watchable.proto
 		return this._value;
 	}, set: function setValue(value)
 	{
+		var oldValue = this._value;
 		this._value = this.callback(value);
-		this.notifyWatchers();
+		this.notifyWatchers(oldValue);
 		if(this.parent)
 			this.parent.notifyWatchers();
 	} }
@@ -285,7 +280,7 @@ function WatchableValue(parameters)
 {
 	parameters = parameters || { };
 	this.parent = parameters.parent instanceof Watchable ? parameters.parent : null;
-	this.callback = parameters.callback instanceof Function ? parameters.callback : WatchableValue.returnUnmodified;
+	this.callback = parameters.callback instanceof Function ? parameters.callback : self;
 	this.value = parameters.value;
 	Watchable.call(this, parameters);
 }
@@ -685,7 +680,7 @@ function Material(parameters)
 	{
 		if(this.notifyWatchers)
 			this.notifyWatchers();
-	}, this);
+	}.bind(this));
 	Watchable.call(this, parameters);
 	this._shininess.parent = this;
 }
@@ -1608,7 +1603,7 @@ Object.defineProperties(TextureMap,
 									boxesInArea[quadrantIndex].push(vArray[v]);
 								}
 							}
-							if(!quadrant.find(WatchableValue.returnUnmodified))
+							if(!quadrant.find(self))
 							{
 								var splitBoxIndex = splitBoxes.push(quadrantBox) - 1;
 								boxesInArea[quadrantIndex].forEach(function addIndexToOverlappingBoxes(boxInArea)
@@ -2090,7 +2085,7 @@ Object.defineProperties(Renderer.prototype = Object.create(ElementEventListener.
 		this.clearColorWatcher = this._clearColor.watch(function markClearColorAsModified()
 		{
 			this.clearColor.modified = true;
-		}, this);
+		}.bind(this));
 	} },
 	animate: { value: function animate(now)
 	{
@@ -2628,9 +2623,9 @@ Object.defineProperties(PerspectiveView.prototype = Object.create(View.prototype
 		}
 		if(camera)
 		{
-			this.cameraWatcher = camera.watch(this.requestUpdate, this);
-			this.positionWatcher = camera.position.watch(this.requestUpdate, this);
-			this.rotationWatcher = camera.rotation.watch(this.requestUpdate, this);
+			this.cameraWatcher = camera.watch(this.requestUpdate.bind(this));
+			this.positionWatcher = camera.position.watch(this.requestUpdate.bind(this));
+			this.rotationWatcher = camera.rotation.watch(this.requestUpdate.bind(this));
 		}
 		else
 		{
@@ -2798,8 +2793,8 @@ function Player(parameters)
 	this.camera = new Camera(parameters.camera);
 	this.position = parameters.position instanceof Vector3 ? parameters.position : new Vector3(parameters.position);
 	this.headOffset = parameters.eyeOffset instanceof Vector3 ? parameters.headOffset : new Vector3(parameters.eyeOffset || [ 0, 1, 0 ]);
-	this.position.watch(this.updateCameraPosition, this);
-	this.headOffset.watch(this.updateCameraPosition, this);
+	this.position.watch(this.updateCameraPosition.bind(this));
+	this.headOffset.watch(this.updateCameraPosition.bind(this));
 	this.headRotation = parameters.headRotation instanceof RotationVector3 ? parameters.headRotation : new RotationVector3(parameters.headRotation);
 	this.controlsLoopWrapped = this.controlsLoop.bind(this);
 }
@@ -2857,7 +2852,7 @@ Object.defineProperties(Layer.prototype = Object.create(Watchable.prototype),
 		this.overlayColorWatcher = this._overlayColor.watch(function markOverlayColorAsModified()
 		{
 			this.overlayColor.modified = true;
-		}, this);
+		}.bind(this));
 	} },
 	lights: { get: function getLights()
 	{
@@ -2877,7 +2872,7 @@ Object.defineProperties(Layer.prototype = Object.create(Watchable.prototype),
 			this._lights.watchers[index] = light.watch(function marklLightAsModified()
 			{
 				this.lights.modified = light.modified = true;
-			}, this);
+			}.bind(this));
 		}, this);
 	} },
 	light: { set: function setLight(light)
@@ -2885,7 +2880,7 @@ Object.defineProperties(Layer.prototype = Object.create(Watchable.prototype),
 		light.watch(function markLightAsModified()
 		{
 			this.lights.modified = light.modified = true;
-		}, this);
+		}.bind(this));
 		this.lights.push(light);
 	} },
 	unload: { value: function unload()
@@ -2988,7 +2983,7 @@ Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prot
 			this._materials.watchers[index] = material.watch(function markMaterialAsModified()
 			{
 				this.materials.modified = material.modified = true;
-			}, this);
+			}.bind(this));
 		}, this);
 	} },
 	material: { set: function setMaterial(material)
@@ -2998,7 +2993,7 @@ Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prot
 			this.materials.watchers[this.materials.push(material) - 1] = material.watch(function markMaterialAsModified()
 			{
 				this.materials.modified = material.modified = true;
-			}, this);
+			}.bind(this));
 		}
 	} },
 	onElementDelete: { value: function onElementDelete()
