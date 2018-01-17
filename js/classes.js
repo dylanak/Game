@@ -269,7 +269,7 @@ Object.defineProperties(WatchableValue.prototype = Object.create(Watchable.proto
 	}, set: function setValue(value)
 	{
 		var oldValue = this._value;
-		this._value = this.callback(value);
+		this._value = this.callback(value, oldValue);
 		this.notifyWatchers(oldValue);
 		if(this.parent)
 			this.parent.notifyWatchers();
