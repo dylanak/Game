@@ -229,7 +229,7 @@ function Watchable(parameters)
 	Array.from(parameters.watchers || [ ]).forEach(function addWatcherFromParameters(watcher)
 	{
 		this.addWatcher(watcher);
-	});
+	}, this);
 }
 
 Object.defineProperties(WatchableValue.prototype = Object.create(Watchable.prototype),
