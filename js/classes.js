@@ -2,22 +2,9 @@ function emptyFunction()
 {
 }
 
-function alwaysFalse()
+function self(arg)
 {
-	return false;
-}
-
-function alwaysTrue()
-{
-	return true;
-}
-
-function self()
-{
-	return function returnArg(arg)
-	{
-		return arg;
-	};
+	return arg;
 }
 
 function constant(constantRet)
@@ -28,59 +15,9 @@ function constant(constantRet)
 	};
 }
 
-function addTo()
+function isBaseOf(base, value)
 {
-	var additive = arguments.length > 0 ? arguments[0] : NaN;
-	Array.forEach(arguments, function addToAdditive(a, index)
-	{
-		if(index > 0)
-			additive += a;
-	});
-	return Number.isNaN(additive) ? self : function addAdditiveTo(base)
-	{
-		return base + additive;
-	};
-}
-
-function subtractFrom()
-{
-	return addTo.apply(this, Array.map(arguments, function additiveInverseOf(a)
-	{
-		return -a;
-	}));
-}
-
-function multiplyBy()
-{
-	var multiple = arguments.length > 0 ? arguments[0] : NaN;
-	Array.forEach(arguments, function multiplyMultipleBy(m, index)
-	{
-		if(index > 0)
-			multiple *= m;
-	});
-	return Number.isNaN(multiple) ? self : function multiplyByMultiple(base)
-	{
-		return base * multiple;
-	};
-}
-
-function divideBy()
-{
-	var divisor = arguments.length > 0 ? arguments[0] : NaN;
-	Array.forEach(arguments, function divideDivisorBy(d, index)
-	{
-		if(index > 0)
-			divisor *= d;
-	});
-	return Number.isNaN(divisor) ? self : function divideByDivisor(base)
-	{
-		return base / divisor;
-	};
-}
-
-function isPowerOfTwo(value)
-{
-	return (value & (value - 1)) == 0;
+	return (Math.log10(value) / Math.log10(base)) % 1 == 0;
 }
 
 function degreesReflectionX(degrees)
@@ -121,29 +58,6 @@ function wrapRadians(radians)
 function averageRadians(a, b)
 {
 	return isNaN(a) ? b : isNaN(b) ? a : wrapRadians((a = wrapRadians(a)) + Math.PI) == (b = wrapRadians(b)) ? NaN : (((a == -Math.PI ? Math.PI * Math.abs(b) / b : a) + (b == -Math.PI ? Math.PI * Math.abs(a) / Math.PI : b) + Math.PI * 4) / 2) - Math.PI2;
-}
-
-function wrapFunction(func, thisArg)
-{
-	return function callWrappedFunction()
-	{
-		return func.apply(thisArg, Array.from(arguments));
-	};
-}
-
-function wrapEventListener(func, thisArg)
-{
-	var argStrings = Array.from(arguments).slice(2);
-	return function callWrappedEventListener(event)
-	{
-		event = event || window.event;
-		var ret = func.apply(thisArg, argStrings.map(function propertyWithName(name)
-		{
-			return event[name];
-		}));
-		if(ret)
-			event.preventDefault();
-	};
 }
 
 function callSuper(thisArg, name)
@@ -225,7 +139,7 @@ Object.defineProperties(ElementEventListener.prototype = Object.create(Object.pr
 			this.removeEventListener(event);
 		else
 			this.eventListeners.events.push(event);
-		var wrappedFunc = this.eventListeners[event] = wrapFunction(func, this);
+		var wrappedFunc = this.eventListeners[event] = func.bind(this);
 		if(this.element)
 			this.element.addEventListener(event, wrappedFunc);
 	} },
@@ -394,7 +308,7 @@ Object.defineProperties(Updatable.prototype = Object.create(Watchable.prototype)
 	requestUpdate: { value: function requestUpdate()
 	{
 		if(this.requestUpdates && !Number.isInteger(this.updateRequestIndex))
-			this.updateRequestIndex = this.game.pushUpdateRequest(wrapFunction(this.update[-1], this));
+			this.updateRequestIndex = this.game.pushUpdateRequest(this.update[-1].bind(this));
 	} }
 });
 
@@ -942,7 +856,7 @@ function GeometryBuilder(parameters)
 		{
 			version: { value: version },
 			defaults: { value: defaults },
-			updateVertices: { value: json.updateVertices ? Reflect.construct.call(undefined, Function, [ "vertex" ].concat(properties).concat([ json.updateVertices ])) : alwaysFalse },
+			updateVertices: { value: json.updateVertices ? Reflect.construct.call(undefined, Function, [ "vertex" ].concat(properties).concat([ json.updateVertices ])) : constant(false) },
 			buildTriangles: { value: json.buildTriangles ? Reflect.construct.call(undefined, Function, [ "triangle" ].concat(properties).concat([ json.buildTriangles ])) : constant([ 0, 0 ]) },
 			cacheVertex: { value: function cacheVertex(index, vector, uv, normal, matrix)
 			{
@@ -1032,7 +946,7 @@ Object.defineProperties(Timestamp.prototype = Object.create(Object.prototype),
 		var times = Array.from(arguments);
 		var timestamp = this;
 		var json = JSON.stringify(this.params);
-		times = times.filter(wrapFunction(this.isInTimestamp, this));
+		times = times.filter(this.isInTimestamp.bind(this));
 		times.push(this.fromTime, this.fromTime + this.time);
 		times.sort();
 		var timestamps = [ ];
@@ -1117,9 +1031,9 @@ function Control(controls, name, func, type, mouseControllerFilter, keyboardCont
 	this.name = name;
 	this.func = func;
 	this.type = type;
-	this.mouseControllerFilter = mouseControllerFilter || alwaysFalse;
-	this.keyboardControllerFilter = keyboardControllerFilter || alwaysFalse;
-	this.gamepadControllerFilter = gamepadControllerFilter || alwaysFalse;
+	this.mouseControllerFilter = mouseControllerFilter || constant(false);
+	this.keyboardControllerFilter = keyboardControllerFilter || constant(false);
+	this.gamepadControllerFilter = gamepadControllerFilter || constant(false);
 	this.defaultMouseControllers = Array.from(defaultMouseControllers);
 	this.defaultKeyboardControllers = Array.from(defaultKeyboardControllers);
 	this.defaultGamepadControllers = Array.from(defaultGamepadControllers);
@@ -1147,10 +1061,11 @@ Object.defineProperties(Mouse,
 Object.defineProperties(Mouse.prototype = Object.create(ElementEventListener.prototype),
 {
 	constructor: { value: Mouse },
-	onButtonDown: { value: function onButtonDown(button)
+	onButtonDown: { value: function onButtonDown(event)
 	{
 		if(this.controls.focused)
 		{
+			var button = (event || window.event).button;
 			var buttonArray = this.buttonArrays[button];
 			if(!buttonArray)
 				buttonArray = this.buttonArrays[button] = [ ];
@@ -1181,10 +1096,11 @@ Object.defineProperties(Mouse.prototype = Object.create(ElementEventListener.pro
 			}, this);
 		}
 	} },
-	onButtonUp: { value: function onButtonUp(button)
+	onButtonUp: { value: function onButtonUp(event)
 	{
 		if(this.controls.focused)
 		{
+			var button = (event || window.event).button;
 			var now = Date.now();
 			(this.buttonArrays[button] || [ ]).forEach(function setButtonTimestampToDefinite(index)
 			{
@@ -1195,10 +1111,12 @@ Object.defineProperties(Mouse.prototype = Object.create(ElementEventListener.pro
 			delete this.buttonArrays[button];
 		}
 	} },
-	onMouseMove: { value: function onMouseMove(movementX, movementY)
+	onMouseMove: { value: function onMouseMove(event)
 	{
 		if(this.controls.focused)
 		{
+			var movementX = (event || window.event).movementX;
+			var movementY = (event || window.event).movementY;
 			this.lastMovementTime = this.lastMovementTime || Date.now();
 			this.movementX += movementX;
 			this.movementY += movementY;
@@ -1257,9 +1175,9 @@ function Mouse(parameters)
 	ElementEventListener.call(this, parameters);
 	if(parameters.controls instanceof Controls)
 		this.controls = parameters.controls;
-	this.addEventListener("mousedown", wrapEventListener(this.onButtonDown, this, "button"));
-	this.addEventListener("mouseup", wrapEventListener(this.onButtonUp, this, "button"));
-	this.addEventListener("mousemove", wrapEventListener(this.onMouseMove, this, "movementX", "movementY"));
+	this.addEventListener("mousedown", this.onButtonDown.bind(this));
+	this.addEventListener("mouseup", this.onButtonUp.bind(this));
+	this.addEventListener("mousemove", this.onMouseMove.bind(this));
 }
 
 Object.defineProperties(Keyboard,
@@ -1280,14 +1198,11 @@ Object.defineProperties(Keyboard,
 Object.defineProperties(Keyboard.prototype = Object.create(ElementEventListener.prototype),
 {
 	constructor: { value: Keyboard },
-	processKeyDown: { value: function processKeyDown(key)
-	{
-		this.onKeyDown(Keyboard.getKey(key));
-	} },
-	onKeyDown: { value: function onKeyDown(key)
+	onKeyDown: { value: function onKeyDown(event)
 	{
 		if(this.controls.focused)
 		{
+			var key = Keyboard.getKey((event || window.event).key);
 			var keyArray = this.keyArrays[key];
 			if(!keyArray)
 				keyArray = this.keyArrays[key] = [ ];
@@ -1318,14 +1233,11 @@ Object.defineProperties(Keyboard.prototype = Object.create(ElementEventListener.
 			}, this);
 		}
 	} },
-	processKeyUp: { value: function processKeyUp(key)
-	{
-		this.onKeyUp(Keyboard.getKey(key));
-	} },
-	onKeyUp: { value: function onKeyUp(key)
+	onKeyUp: { value: function onKeyUp(event)
 	{
 		if(this.controls.focused)
 		{
+			var key = Keyboard.getKey((event || window.event).key);
 			var now = Date.now();
 			(this.keyArrays[key] || [ ]).forEach(function setKeyTimestampToDefinite(index)
 			{
@@ -1349,8 +1261,8 @@ function Keyboard(parameters)
 	ElementEventListener.call(this, parameters);
 	if(parameters.controls instanceof Controls)
 		this.controls = parameters.controls;
-	this.addEventListener("keydown", wrapEventListener(this.processKeyDown, this, "key"));
-	this.addEventListener("keyup", wrapEventListener(this.processKeyUp, this, "key"));
+	this.addEventListener("keydown", this.onKeyDown.bind(this));
+	this.addEventListener("keyup", this.onKeyUp.bind(this));
 }
 Object.defineProperties(Gamepad,
 {
@@ -1791,12 +1703,12 @@ Object.defineProperties(TextureMap.prototype = Object.create(Object.prototype),
 		var ret = [ ];
 		var textures = Array.from(this.textures);
 		var loadedImages = textures.length;
-		var restitchIfAllLoaded = wrapFunction(function restitchIfAllLoaded()
+		var restitchIfAllLoaded = function restitchIfAllLoaded()
 		{
 			loadedImages++;
 			if(loadedImages == textures.length)
 				this.restitchTextures(textures);
-		}, this);
+		}.bind(this);
 		imageLocations.forEach(function requestTexture(imageLocation)
 		{
 			var image = new Image();
@@ -1824,10 +1736,10 @@ Object.defineProperties(TextureMap.prototype = Object.create(Object.prototype),
 			image.src = imageLocation;
 		}, this);
 		if(imageLocations.length == 0)
-			setTimeout(wrapFunction(function delayedRestitchTextures()
+			setTimeout(function delayedRestitchTextures()
 			{
 				this.restitchTextures(textures);
-			}, this), 0);
+			}.bind(this), 0);
 		return ret;
 	} },
 	restitchTextures: { value: function restitchTextures(textures)
@@ -1856,12 +1768,12 @@ Object.defineProperties(TextureMap.prototype = Object.create(Object.prototype),
 			texture.notifyWatchers();
 		}, this);
 		this.stitched.src = stitchCanvas.toDataURL();
-		this.stitched.addEventListener("load", this.onStichedLoad = wrapFunction(function onStitchedTextureMapLoad()
+		this.stitched.addEventListener("load", this.onStichedLoad = function onStitchedTextureMapLoad()
 		{
 			this.stitched.removeEventListener("load", this.onStitchedLoad);
 			this.onStitchedLoad = undefined;
 			this.renderer.bindTextureMap();
-		}, this));
+		}.bind(this));
 	} }
 });
 
@@ -1881,12 +1793,12 @@ function TextureMap(parameters)
 			missingImageData.data.set([ Math.max(0, (x + 1) * 64 - 1), Math.max(0, (y + 1) * 64 - 1), Math.max(0, (x + y * missingImageData.width + 1) * 16 - 1), 255 ], (x + y * missingImageData.width) * 4);
 	missingContext.putImageData(missingImageData, 0, 0);
 	this.stitched.src = missingImage.src = missingCanvas.toDataURL();
-	this.stitched.addEventListener("load", this.onStichedLoad = wrapFunction(function onStitchedTextureMapLoad()
+	this.stitched.addEventListener("load", this.onStichedLoad = function onStitchedTextureMapLoad()
 	{
 		this.stitched.removeEventListener("load", this.onStitchedLoad);
 		this.onStitchedLoad = undefined;
 		this.renderer.bindTextureMap();
-	}, this));
+	}.bind(this));
 	this[0] = [ 0, 0, 1, 1 ];
 }
 
@@ -1895,43 +1807,43 @@ Object.defineProperties(GeometryAllocation.prototype = Object.create(Object.prot
 	constructor: { value: GeometryAllocation },
 	putVector: { get: function getPutVector()
 	{
-		return wrapFunction(this.triangleBuffer.vertexBuffer.vectors instanceof Float32Array ? function putVectorIntoTypedArray(vector, vectorIndex)
+		return (this.triangleBuffer.vertexBuffer.vectors instanceof Float32Array ? function putVectorIntoTypedArray(vector, vectorIndex)
 		{
 			this.triangleBuffer.vertexBuffer.vectors.set(vector, vectorIndex);
 		} : function putVectorIntoArray(vector, vectorIndex)
 		{
 			this.triangleBuffer.vertexBuffer.vectors.splice.apply(this.triangleBuffer.vertexBuffer.vectors, [ vectorIndex, 3 ].concat(vector));
-		}, this);
+		}).bind(this);
 	} },
 	putUV: { get: function getPutUV()
 	{
-		return wrapFunction(this.triangleBuffer.vertexBuffer.uvs instanceof Float32Array ? function putUVIntoTypedArray(uv, uvIndex)
+		return (this.triangleBuffer.vertexBuffer.uvs instanceof Float32Array ? function putUVIntoTypedArray(uv, uvIndex)
 		{
 			this.triangleBuffer.vertexBuffer.uvs.set(uv, uvIndex);
 		} : function putUVIntoArray(uv, uvIndex)
 		{
 			this.triangleBuffer.vertexBuffer.uvs.splice.apply(this.triangleBuffer.vertexBuffer.uvs, [ uvIndex, 2 ].concat(uv));
-		}, this);
+		}).bind(this);
 	} },
 	putNormal: { get: function getPutNormal()
 	{
-		return wrapFunction(this.triangleBuffer.vertexBuffer.normals instanceof Float32Array ? function putNormalIntoTypedArray(normal, normalIndex)
+		return (this.triangleBuffer.vertexBuffer.normals instanceof Float32Array ? function putNormalIntoTypedArray(normal, normalIndex)
 		{
 			this.triangleBuffer.vertexBuffer.normals.set(normal, normalIndex);
 		} : function putNormalIntoArray(normal, normalIndex)
 		{
 			this.triangleBuffer.vertexBuffer.normals.splice.apply(this.triangleBuffer.vertexBuffer.normals, [ normalIndex, 3 ].concat(normal));
-		}, this);
+		}).bind(this);
 	} },
 	putMatrix: { get: function getPutMatrix()
 	{
-		return wrapFunction(this.triangleBuffer.vertexBuffer.matrices instanceof Float32Array ? function putMatrixIntoTypedArray(matrix, matrixIndex)
+		return (this.triangleBuffer.vertexBuffer.matrices instanceof Float32Array ? function putMatrixIntoTypedArray(matrix, matrixIndex)
 		{
 			this.triangleBuffer.vertexBuffer.matrices.set(matrix, matrixIndex);
 		} : function putMatrixIntoArray(matrix, matrixIndex)
 		{
 			this.triangleBuffer.vertexBuffer.matrices.splice.apply(this.triangleBuffer.vertexBuffer.matrices, [ matrixIndex, 16 ].concat(matrix));
-		}, this);
+		}).bind(this);
 	} },
 	disallocate: { value: function disallocate()
 	{
@@ -2036,13 +1948,7 @@ Object.defineProperties(GeometryAllocation.prototype = Object.create(Object.prot
 	} },
 	applyVertices: { value: function applyVertices()
 	{
-		var putMatrix = wrapFunction(this.triangleBuffer.vertexBuffer.matrices instanceof Float32Array ? function putMatrixIntoTypedArray(matrix, matrixIndex)
-		{
-			this.triangleBuffer.vertexBuffer.matrices.set(matrix, matrixIndex);
-		} : function putMatrixIntoArray(matrix, matrixIndex)
-		{
-			this.triangleBuffer.vertexBuffer.matrices.splice.apply(this.triangleBuffer.vertexBuffer.matrices, [ matrixIndex, 16 ].concat(matrix));
-		}, this);
+		var putMatrix = this.putMatrix;
 		this.unappliedMatrices.forEach(function applyVertexMatrix(matrix, vertex)
 		{
 			var index = this.getVertexIndex(vertex);
@@ -2192,7 +2098,7 @@ Object.defineProperties(Renderer.prototype = Object.create(ElementEventListener.
 		if(this.then)
 			this.render(now - this.then);
 		this.then = now;
-		this.nextAnimationFrame = requestAnimationFrame(wrapFunction(this.animate, this));
+		this.nextAnimationFrame = requestAnimationFrame(this.animate.bind(this));
 	} },
 	render: { value: function render(delta)
 	{
@@ -2243,7 +2149,7 @@ function Renderer(parameters)
 	{
 		layer.triangleBuffer = new TriangleBuffer(this.vertexBuffer);
 	}, this);
-	this.resizeWrapper = wrapFunction(this.resize, this);
+	this.resizeWrapper = this.resize.bind(this);
 	ElementEventListener.call(this, parameters);
 }
 
@@ -2278,13 +2184,13 @@ Object.defineProperties(WebGLRenderer.prototype = Object.create(Renderer.prototy
 		var shader = this.game.directory.shaders[name];
 		var rawVertex;
 		var rawFragment;
-		var compileShaders = wrapFunction(function compileShaders()
+		var compileShaders = function compileShaders()
 		{
 			if(rawVertex && rawFragment)
 			{
 				this.shaders = new GLSLShaders(this, { program: shader, vertex: { raw: rawVertex, canReformat: shader.vertex.canReformat, format: shader.vertex.format }, fragment: { raw: rawFragment, canReformat: shader.fragment.canReformat, format: shader.fragment.format } });
 			}
-		}, this);
+		}.bind(this);
 		requestText("resources/shaders/" + shader.vertex.source, function compileIfFragmentPresent(text)
 		{
 			rawVertex = text;
@@ -2511,15 +2417,15 @@ Object.defineProperties(GLSLShaders.prototype = Object.create(Object.prototype),
 	constructor: { value: GLSLShaders },
 	populateProgram: { value: function populateProgram(program, parameters)
 	{
-		program.canReformat = parameters.canReformat ? wrapFunction(new Function("renderer", parameters.canReformat), this) : alwaysFalse;
-		program.preFormat = parameters.preFormat ? wrapFunction(new Function("renderer", parameters.preFormat), this) : self;
+		program.canReformat = parameters.canReformat ? new Function("renderer", parameters.canReformat).bind(this) : constant(false);
+		program.preFormat = parameters.preFormat ? new Function("renderer", parameters.preFormat).bind(this) : self;
 		return program;
 	} },
 	populateShader: { value: function populateShader(shader, parameters)
 	{
 		shader.raw = parameters.raw || "";
-		shader.canReformat = parameters.canReformat ? wrapFunction(new Function("renderer", parameters.canReformat), this) : alwaysFalse;
-		shader.format = parameters.format ? wrapFunction(new Function("renderer", "raw", parameters.format), this) : self; 
+		shader.canReformat = parameters.canReformat ? new Function("renderer", parameters.canReformat).bind(this) : constant(false);
+		shader.format = parameters.format ? new Function("renderer", "raw", parameters.format).bind(this) : self; 
 		return shader;
 	} },
 	tryRecompileShaders: { value: function tryRecompileShaders(renderer)
@@ -2895,7 +2801,7 @@ function Player(parameters)
 	this.position.watch(this.updateCameraPosition, this);
 	this.headOffset.watch(this.updateCameraPosition, this);
 	this.headRotation = parameters.headRotation instanceof RotationVector3 ? parameters.headRotation : new RotationVector3(parameters.headRotation);
-	this.controlsLoopWrapped = wrapFunction(this.controlsLoop, this);
+	this.controlsLoopWrapped = this.controlsLoop.bind(this);
 }
 
 Object.defineProperties(Light.prototype = Object.create(Watchable.prototype),
@@ -3129,6 +3035,10 @@ Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prot
 	{
 		delete this.renderer.updateRequests[index];
 	}, writable: true },
+	onContextMenu: { value: function onContextMenu(event)
+	{	
+		(event || window.event).preventDefault();
+	} },
 	unload: { value: function unload(event)
 	{
 		this.save();
@@ -3210,9 +3120,9 @@ function Game(parameters)
 	this.replaceUpdateRequest = Game.prototype.replaceUpdateRequest;
 	this.pullUpdateRequest = Game.prototype.pullUpdateRequest;
 	window.addEventListener("resize", this.renderer.resizeWrapper);
-	window.addEventListener("beforeunload", this.unloadWrapper = wrapFunction(this.unload, this));
+	window.addEventListener("beforeunload", this.unloadWrapper = this.unload.bind(this));
 	ElementEventListener.call(this, parameters);
-	this.addEventListener("contextmenu", wrapEventListener(function preventContextMenu(preventDefault) { return true; }, this));
+	this.addEventListener("contextmenu", this.onContextMenu);
 	this.addEventListener("click", function requestPointerLockOnElement()
 	{
 		if(this.activeControlsArray.some(function requiresPointerLock(activeControls)
