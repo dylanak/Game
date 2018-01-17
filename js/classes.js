@@ -20,26 +20,6 @@ function isBaseOf(base, value)
 	return (Math.log10(value) / Math.log10(base)) % 1 == 0;
 }
 
-function degreesReflectionX(degrees)
-{
-	return (degrees / Math.abs(degrees)) * (180 - Math.abs(degrees));
-}
-
-function degreesReflectionY(degrees)
-{
-	return wrapDegrees(-degrees);
-}
-
-function wrapDegrees(degrees)
-{
-	return (degrees + 180) % 360 == degrees + 180 ? degrees : degrees - (Math.floor((degrees + 180) / 360) * 360);
-}
-
-function averageDegrees(a, b)
-{
-	return isNaN(a) ? b : isNaN(b) ? a : wrapDegrees((a = wrapDegrees(a)) + 180) == (b = wrapDegrees(b)) ? NaN : (((a == -180 ? 180 * Math.abs(b) / b : a) + (b == -180 ? 180 * Math.abs(a) / a : b) + 720) / 2) - 360;
-}
-
 function radiansReflectionX(radians)
 {
 	return (radians / Math.abs(radians)) * (Math.PI - Math.abs(radians));
@@ -434,19 +414,6 @@ Object.defineProperties(Vector3.prototype = Object.create(Vector2.prototype),
 		this.notifyWatchers();
 		return this;
 	} },
-	rotate: { value: function rotate(x, y, z)
-	{
-		return this.rotateRad(Math.rad(x), Math.rad(y), Math.rad(z));
-	} },
-	rotateRad: { value: function rotateRad(x, y, z)
-	{
-		var sinX = Math.sin(x), cosX = Math.cos(x), sinY = Math.sin(y), cosY = Math.cos(y), sinZ = Math.sin(z), cosZ = Math.cos(z);
-		return this.rotateMatrix(mat3.invert([ ], [ 1, 0, 0, 0, cosX, -sinX, 0, sinX, cosX ]), [ cosY, 0, sinY, 0, 1, 0, -sinY, 0, cosY ], [ cosZ, -sinZ, 0, sinZ, cosZ, 0, 0, 0, 1 ]);
-	} },
-	rotateMatrix: { value: function rotateMatrix(x, y, z)
-	{
-		return new Vector3(vec3.transformMat3([ ], vec3.transformMat3([ ], vec3.transformMat3([ ], this, y), x), z));
-	} },
 	2: { get: function getZ()
 	{
 		return this.z.value;
@@ -483,7 +450,7 @@ Object.defineProperties(RotationVector.prototype = Object.create(Vector.prototyp
 function RotationVector(parameters)
 {
 	Vector.call(this, parameters);
-	this.x.callback = wrapDegrees;
+	this.x.callback = wrapRadians;
 }
 
 
@@ -495,7 +462,7 @@ Object.defineProperties(RotationVector2.prototype = Object.create(Vector2.protot
 function RotationVector2(parameters)
 {
 	Vector2.call(this, parameters);
-	this.x.callback = this.y.callback = wrapDegrees;
+	this.x.callback = this.y.callback = wrapRadians;
 }
 
 Object.defineProperties(RotationVector3.prototype = Object.create(Vector3.prototype),
@@ -506,7 +473,7 @@ Object.defineProperties(RotationVector3.prototype = Object.create(Vector3.protot
 function RotationVector3(parameters)
 {
 	Vector3.call(this, parameters);
-	this.x.callback = this.y.callback = this.z.callback = wrapDegrees;
+	this.x.callback = this.y.callback = this.z.callback = wrapRadians;
 }
 
 Object.defineProperties(Color,
@@ -623,15 +590,15 @@ Object.defineProperties(Camera.prototype = Object.create(Watchable.prototype),
 	constructor: { value: Camera },
 	lookAt: { value: function lookAt(vector) 
 	{
-		this.rotation[0] = Math.deg(Math.atan2(vector[1] - this.position[1], Math.hypot(vector[0] - this.position[0], this.position[2] - vector[2])));
-		this.rotation[1] = Math.deg(Math.atan2(vector[0] - this.position[0], this.position[2] - vector[2]));
+		this.rotation[0] = Math.atan2(vector[1] - this.position[1], Math.hypot(vector[0] - this.position[0], this.position[2] - vector[2]));
+		this.rotation[1] = Math.atan2(vector[0] - this.position[0], this.position[2] - vector[2]);
 	} },
 	fov: { get: function getFov()
 	{
 		return this._fov;
 	}, set: function setFov(fov)
 	{
-		this._fov = fov || 45; this.notifyWatchers();
+		this._fov = fov || Math.PI / 4; this.notifyWatchers();
 	} },
 	near: { get: function getNear()
 	{
@@ -714,9 +681,9 @@ Object.defineProperties(GeometryBuilder,
 	updateGeometry: 	{ value: function updateGeometry()
 	{
 		this.transformationMatrix = mat4.translate(this.transformationMatrix || [ ], mat4.identity([ ]), this.position);
-		mat4.rotateX(this.transformationMatrix, this.transformationMatrix, Math.rad(this.rotation[0]));
-		mat4.rotateY(this.transformationMatrix, this.transformationMatrix, Math.rad(this.rotation[1]));
-		mat4.rotateZ(this.transformationMatrix, this.transformationMatrix, Math.rad(this.rotation[2]));
+		mat4.rotateX(this.transformationMatrix, this.transformationMatrix, this.rotation[0]);
+		mat4.rotateY(this.transformationMatrix, this.transformationMatrix, this.rotation[1]);
+		mat4.rotateZ(this.transformationMatrix, this.transformationMatrix, this.rotation[2]);
 		if(this.updateVertices())
 			this.buildTriangles();
 	} }
@@ -1115,7 +1082,7 @@ Object.defineProperties(Mouse.prototype = Object.create(ElementEventListener.pro
 			this.lastMovementTime = this.lastMovementTime || Date.now();
 			this.movementX += movementX;
 			this.movementY += movementY;
-			var movementInfo = [ Math.deg(Math.atan2(movementX, movementY)), Math.hypot(movementX, movementY) ];
+			var movementInfo = [ Math.atan2(movementX, movementY), Math.hypot(movementX, movementY) ];
 			var instantControlFunctions = { list: [ ] };
 			this.controls.getControls("mouse.movement").forEach(function pushControlFunctionIfInstantControl(control)
 			{
@@ -1144,7 +1111,7 @@ Object.defineProperties(Mouse.prototype = Object.create(ElementEventListener.pro
 		if(this.lastMovementTime && (this.movementX || this.movementY))
 		{
 			var params = { };
-			var movementInfo = [ Math.deg(Math.atan2(this.movementX, this.movementY)), Math.hypot(this.movementX, this.movementY) ];
+			var movementInfo = [ Math.atan2(this.movementX, this.movementY), Math.hypot(this.movementX, this.movementY) ];
 			this.controls.getControls("mouse.movement").forEach(function setControlRotaryParameter(control)
 			{
 				if(control.type == 2)
@@ -1294,7 +1261,7 @@ Object.defineProperties(Gamepad.prototype = Object.create(ElementFocusEventListe
 					var controller = "analog" + j;
 					if(analogX != 0 || analogY != 0)
 					{
-						var analogInfo = [ Math.deg(Math.atan2(analogX, analogY)), Math.hypot(analogX, analogY) ];
+						var analogInfo = [ Math.atan2(analogX, analogY), Math.hypot(analogX, analogY) ];
 						this.controls.getControls("gamepad." + controller).forEach(function setControlRotaryParameter(control)
 						{
 							params.setPropertyAt("gamepad." + control.name, analogInfo);
@@ -2591,10 +2558,10 @@ Object.defineProperties(PerspectiveView,
 		{
 			var position = (this.camera || { }).position;
 			var rotation = (this.camera || { }).rotation;
-			mat4.perspective(this.matrix, Math.rad(this.camera.fov), this.aspect, this.near, this.far);
-			mat4.rotateX(this.matrix, this.matrix, Math.rad(-rotation[0]));
-			mat4.rotateY(this.matrix, this.matrix, Math.rad(rotation[1]));
-			mat4.rotateZ(this.matrix, this.matrix, Math.rad(rotation[2]));
+			mat4.perspective(this.matrix, this.camera.fov, this.aspect, this.near, this.far);
+			mat4.rotateX(this.matrix, this.matrix, -rotation[0]);
+			mat4.rotateY(this.matrix, this.matrix, rotation[1]);
+			mat4.rotateZ(this.matrix, this.matrix, rotation[2]);
 			mat4.translate(this.matrix, this.matrix, [ -position[0], -position[1], -position[2] ]);
 			this.matrix.identityMatrix = false;
 			this.matrix.modified = true;
@@ -2724,13 +2691,13 @@ Object.defineProperties(Player.prototype = Object.create(Object.prototype),
 		var lookDistance = 0;
 		if(mouse.instalook)
 		{
-			lookAngle = averageDegrees(lookAngle, mouse.instalook.horizontal ? degreesReflectionX(mouse.instalook.horizontal[0]) : NaN);
+			lookAngle = averageRadians(lookAngle, mouse.instalook.horizontal ? radiansReflectionX(mouse.instalook.horizontal[0]) : NaN);
 			lookDistance = mouse.instalook.horizontal ? Math.max(Math.min(mouse.instalook.horizontal[1], 2), lookDistance) : lookDistance;
 		}
 		if(!isNaN(lookAngle))
 		{
-			this.camera.rotation[0] = Math.max(Math.min(this.camera.rotation[0] + Math.cos(Math.rad(lookAngle)) * lookDistance, 90), -90);
-			this.camera.rotation[1] += Math.sin(Math.rad(lookAngle)) * lookDistance;
+			this.camera.rotation[0] = Math.max(Math.min(this.camera.rotation[0] + Math.cos(lookAngle) * Math.rad(lookDistance), Math.HALFPI), -Math.HALFPI);
+			this.camera.rotation[1] += Math.sin(lookAngle) * Math.rad(lookDistance);
 		}
 	} },
 	controlsLoop: { value: function controlsLoop(timestamps, last, now)
@@ -2745,38 +2712,38 @@ Object.defineProperties(Player.prototype = Object.create(Object.prototype),
 			var lookDistance = 0;
 			if(keyboard.look)
 			{
-				lookAngle = averageDegrees(lookAngle, averageDegrees(averageDegrees(keyboard.look.downwards ? 180 : NaN, keyboard.look.upwards ? 0 : NaN), averageDegrees(keyboard.look.leftwards ? -90 : NaN, keyboard.look.rightwards ? 90 : NaN)));
+				lookAngle = averageRadians(lookAngle, averageRadians(averageRadians(keyboard.look.downwards ? Math.PI : NaN, keyboard.look.upwards ? 0 : NaN), averageRadians(keyboard.look.leftwards ? -Math.HALFPI : NaN, keyboard.look.rightwards ? Math.HALFPI : NaN)));
 				lookDistance = 1;
 			}
 			if(gamepad.look)
 			{
-				lookAngle = averageDegrees(lookAngle, averageDegrees(averageDegrees(gamepad.look.downwards ? 180 : NaN, gamepad.look.upwards ? 0 : NaN), averageDegrees(gamepad.look.leftwards ? -90 : NaN, gamepad.look.rightwards ? 90 : NaN)));
-				lookAngle = averageDegrees(lookAngle, gamepad.look.horizontal ? gamepad.look.horizontal[0] : NaN);
+				lookAngle = averageRadians(lookAngle, averageRadians(averageRadians(gamepad.look.downwards ? Math.PI : NaN, gamepad.look.upwards ? 0 : NaN), averageRadians(gamepad.look.leftwards ? -Math.HALFPI : NaN, gamepad.look.rightwards ? Math.HALFPI : NaN)));
+				lookAngle = averageRadians(lookAngle, gamepad.look.horizontal ? gamepad.look.horizontal[0] : NaN);
 				lookDistance = gamepad.look.horizontal ? Math.max(Math.min(gamepad.look.horizontal[1], 1), lookDistance) : lookDistance;
 			}
 			if(!isNaN(lookAngle))
 			{
-				this.camera.rotation[0] = Math.max(Math.min(this.camera.rotation[0] + Math.cos(Math.rad(lookAngle)) * lookDistance, 90), -90);
-				this.camera.rotation[1] += Math.sin(Math.rad(lookAngle)) * lookDistance;
+				this.camera.rotation[0] = Math.max(Math.min(this.camera.rotation[0] + Math.cos(lookAngle) * Math.rad(lookDistance), Math.HALFPI), -Math.HALFPI);
+				this.camera.rotation[1] += Math.sin(lookAngle) * Math.rad(lookDistance);
 			}
 			var moveAngle = NaN;
 			var moveDistance = 1;
 			if(keyboard.movement)
 			{
-				moveAngle = averageDegrees(moveAngle, averageDegrees(averageDegrees(keyboard.movement.forwards ? 0 : NaN, keyboard.movement.backwards ? 180 : NaN), averageDegrees(keyboard.movement.leftwards ? -90 : NaN, keyboard.movement.rightwards ? 90 : NaN)));
+				moveAngle = averageRadians(moveAngle, averageRadians(averageRadians(keyboard.movement.forwards ? 0 : NaN, keyboard.movement.backwards ? Math.PI : NaN), averageRadians(keyboard.movement.leftwards ? -Math.HALFPI : NaN, keyboard.movement.rightwards ? Math.HALFPI : NaN)));
 				positionOffset[1] += ((keyboard.movement.upwards ? 1 : 0) + (keyboard.movement.downwards ? -1 : 0)) * timestamp.time / 1000;
 			}
 			if(gamepad.movement)
 			{
-				moveAngle = averageDegrees(moveAngle, averageDegrees(averageDegrees(gamepad.movement.forwards ? 0 : NaN, gamepad.movement.backwards ? 180 : NaN), averageDegrees(gamepad.movement.leftwards ? -90 : NaN, gamepad.movement.rightwards ? 90 : NaN)));
-				moveAngle = averageDegrees(moveAngle, gamepad.movement.horizontal ? gamepad.movement.horizontal[0] : NaN);
+				moveAngle = averageRadians(moveAngle, averageRadians(averageRadians(gamepad.movement.forwards ? 0 : NaN, gamepad.movement.backwards ? Math.PI : NaN), averageRadians(gamepad.movement.leftwards ? -Math.HALFPI : NaN, gamepad.movement.rightwards ? Math.HALFPI : NaN)));
+				moveAngle = averageRadians(moveAngle, gamepad.movement.horizontal ? gamepad.movement.horizontal[0] : NaN);
 				moveDistance = gamepad.movement.horizontal ? gamepad.movement.horizontal[1] : moveDistance;
 				positionOffset[1] += ((gamepad.movement.upwards ? 1 : 0) + (gamepad.movement.downwards ? -1 : 0)) * timestamp.time / 1000;
 			}
 			if(!isNaN(moveAngle))
 			{
-				positionOffset[0] += Math.sin(Math.rad(this.camera.rotation[1]) + Math.rad(moveAngle)) * timestamp.time / 1000 * moveDistance;
-				positionOffset[2] -= Math.cos(Math.rad(this.camera.rotation[1]) + Math.rad(moveAngle)) * timestamp.time / 1000 * moveDistance;
+				positionOffset[0] += Math.sin(this.camera.rotation[1] + moveAngle) * timestamp.time / 1000 * moveDistance;
+				positionOffset[2] -= Math.cos(this.camera.rotation[1] + moveAngle) * timestamp.time / 1000 * moveDistance;
 			}
 			if(keyboard)
 			{
