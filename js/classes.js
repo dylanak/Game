@@ -3021,14 +3021,14 @@ Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prot
 	{
 		var script = this.scripts.getPropertyAt(path);
 		if(script)
-			readyFunction(script);
+			readyFunction(Reflect.construct.call(undefined, Function, arguments),
 		else
 		{
 			var scriptRequest = this.scriptRequests.getPropertyAt(path);
 			if(scriptRequest)
 				scriptRequest.addEventListener("load", readyFunction);
 			else
-				readyFunction("");
+				readyFunction();
 		}
 	} },
 	activeControlsArray: { get: function getActiveControlsArray()
