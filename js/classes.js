@@ -3017,11 +3017,11 @@ function Level(parameters)
 Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prototype),
 {
 	constructor: { value: Game },
-	requestFunction: { value: function requestFunction(path, readyFunction, arguments)
+	requestFunction: { value: function requestFunction(path, arguments, readyFunction)
 	{
 		var script = this.scripts.getPropertyAt(path);
 		if(script)
-			readyFunction(Reflect.construct.call(undefined, Function, arguments),
+			readyFunction(Reflect.construct.call(undefined, Function, arguments.concat(script)));
 		else
 		{
 			var scriptRequest = this.scriptRequests.getPropertyAt(path);
