@@ -73,9 +73,13 @@ function isUnicodeAlphaNumeral(unicode)
 function requestText(source, onload)
 {
 	var request = new XMLHttpRequest();
-	request.onload = function onTextLoad() { onload(this.status == 200 ? this.responseText : ""); }
+	request.addEventListener("load", function onTextLoad()
+	{
+		onload(this.status == 200 ? this.responseText : "");
+	});
 	request.open("GET", source);
 	request.send();
+	return request;
 }
 
 Object.defineProperties(ElementEventListener.prototype = Object.create(Object.prototype),
@@ -3013,6 +3017,20 @@ function Level(parameters)
 Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prototype),
 {
 	constructor: { value: Game },
+	requestFunction: { value: function requestFunction(path, readyFunction, arguments)
+	{
+		var script = this.scripts.getPropertyAt(path);
+		if(script)
+			readyFunction(script);
+		else
+		{
+			var scriptRequest = this.scriptRequests.getPropertyAt(path);
+			if(scriptRequest)
+				scriptRequest.addEventListener("load", readyFunction);
+			else
+				readyFunction("");
+		}
+	} },
 	activeControlsArray: { get: function getActiveControlsArray()
 	{
 		return this._activeControlsArray;
@@ -3144,6 +3162,45 @@ function Game(parameters)
 		delete updateRequests[index];
 	};
 	this.directory = parameters.directory || { };
+	this.scripts = { };
+	this.scriptRequests = { };
+	var scriptPaths = [ ];
+	while((scriptPaths = Object.keys(this.directory.scripts)).length > 0)
+	{
+		scriptPaths.forEach(function processScriptPaths(startPath)
+		{
+			var subPaths = this.directory.scripts[startPath];
+			console.log(startPath, subPaths);
+			delete this.directory.scripts[startPath];
+			if(Array.isArray(subPaths))
+				subPaths.forEach(function pushScriptRequest(subPath, index)
+				{
+					var path = "{0}.{1}".format(startPath, subPath);
+					var netPath = path;
+					while(netPath.indexOf(".") >= 0)
+						netPath = netPath.replace(".", "/");
+					this.scriptRequests.setPropertyAt(path, requestText("resources/scripts/{0}.js".format(netPath), function putScript(script)
+					{
+						if(script)
+							this.scripts.setPropertyAt(path, script);
+						else
+						{
+							var startNetPath = startPath;
+							while(startNetPath.indexOf(".") >= 0)
+								startNetPath = startNetPath.replace(".", "/");
+							console.error("The script listed at \"{0}/resources/directory.json\"/scripts/{1}[{2}] is either non-existant or empty at \"{0}/resources/scripts/{3}.js\"".format(window.origin, startNetPath, index, netPath));
+						}
+						this.scriptRequests.deletePropertyAt(path);
+					}.bind(this)));
+				}, this);
+			else
+				Object.keys(subPaths).forEach(function putSubPath(subPathStart)
+				{
+					this.directory.scripts["{0}.{1}".format(startPath, subPathStart)] = subPaths[subPathStart];
+				}, this);
+				
+		}, this);
+	}
 	this.options = { controls: { gamepad: { deadZone: .3 } } };
 	this.materials = [ ];
 	if(!parameters.gui)
