@@ -5,6 +5,9 @@
 	"translations":
 	{
 	},
+	"scripts":
+	{
+	},
 	"geometryBuilders":
 	{
 		"plane": "plane.json",

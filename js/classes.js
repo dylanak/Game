@@ -3017,19 +3017,26 @@ function Level(parameters)
 Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prototype),
 {
 	constructor: { value: Game },
-	requestFunction: { value: function requestFunction(path, arguments, readyFunction)
+	requestScript: { value: function requestScript(path, readyFunction)
 	{
 		var script = this.scripts.getPropertyAt(path);
 		if(script)
-			readyFunction(Reflect.construct.call(undefined, Function, arguments.concat(script)));
+			readyFunction(script);
 		else
 		{
 			var scriptRequest = this.scriptRequests.getPropertyAt(path);
 			if(scriptRequest)
 				scriptRequest.addEventListener("load", readyFunction);
 			else
-				readyFunction();
+				readyFunction("");
 		}
+	} },
+	requestFunction: { value: function requestFunction(path, args, readyFunction)
+	{
+		this.requestScript(path, function fireReadyFunction(script)
+		{
+			readyFunction(Reflect.construct.call(undefined, Function, (args || [ ]).concat(script)));
+		});
 	} },
 	activeControlsArray: { get: function getActiveControlsArray()
 	{
@@ -3170,7 +3177,6 @@ function Game(parameters)
 		scriptPaths.forEach(function processScriptPaths(startPath)
 		{
 			var subPaths = this.directory.scripts[startPath];
-			console.log(startPath, subPaths);
 			delete this.directory.scripts[startPath];
 			if(Array.isArray(subPaths))
 				subPaths.forEach(function pushScriptRequest(subPath, index)
