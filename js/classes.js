@@ -3035,7 +3035,16 @@ Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prot
 	{
 		this.requestScript(path, function fireReadyFunction(script)
 		{
-			readyFunction(Reflect.construct.call(undefined, Function, (args || [ ]).concat(script)));
+			if(script)
+				readyFunction(Reflect.construct.call(undefined, Function, (args || [ ]).concat(script)));
+			else
+			{
+				var netPath = path;
+				while(netPath.indexOf(".") >= 0)
+					netPath = netPath.replace(".", "/");
+				console.error("Script \"{0}\" is either non-existant or empty at \"{1}/resources/scripts/{2}.js\"".format(path, window.origin, netPath));
+				readyFunction();
+			}
 		});
 	} },
 	activeControlsArray: { get: function getActiveControlsArray()
