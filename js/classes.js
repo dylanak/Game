@@ -1864,6 +1864,10 @@ Object.defineProperties(TextureMap.prototype = Object.create(Object.prototype),
 			this.onStitchedLoad = undefined;
 			this.renderer.bindTextureMap();
 			(readyFunction || emptyFunction)();
+			textures.forEach(function putTexture(texture)
+			{
+				this.textures[texture.index] = texture;
+			}, this);
 			this.textures.forEach(function notifyTextureOfUpdate(texture)
 			{
 				texture.notifyWatchers();
