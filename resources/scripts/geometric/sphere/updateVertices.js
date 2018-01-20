@@ -8,6 +8,5 @@ for(var v = 0; v <= Math.floor(properties[4] * properties[2]); v++)
 		var transformationMatrix = mat4.multiply([ ], horizontalTransformationMatrix, verticalTransformationMatrix);
 		vertex(v * (properties[4] + 1) + h, vector, [ h / properties[3], v / properties[4] ], vector, transformationMatrix);
 	}
-	
 }
 return false;

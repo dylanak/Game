@@ -6,8 +6,8 @@
 		"radius": { "default": "return .5", "transformer": "return Math.abs(Number.parseFloat(value)) || .5", "aliases": { "diameter": "return Math.abs(Number.parseFloat(value)) / 2 || .5" } },
 		"horizontalcircumfrence": { "default": "return 1", "transformer": "return Math.min(Math.abs(Number.parseFloat(value)), 1) || 1" },
 		"verticalcircumfrence": { "default": "return 1", "transformer": "return Math.min(Math.abs(Number.parseFloat(value)), 1) || 1"  },
-		"slices": { "default": "return 16", "transformer": "return Math.pow(Math.ceil(Math.log2(Math.abs(Number.parseInt(value)))), 2) || 16" },
-		"stacks": { "default": "return 16", "transformer": "return Math.pow(Math.ceil(Math.log2(Math.abs(Number.parseInt(value)))), 2) || 16" }
+		"slices": { "default": "return 16", "transformer": "return Math.ceil(Math.abs(Number.parseFloat(value)) / 4) * 4 || 16" },
+		"stacks": { "default": "return 16", "transformer": "return Math.ceil(Math.abs(Number.parseFloat(value)) / 4) * 4 || 16" }
 	},
 	"functions":
 	{
