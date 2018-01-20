@@ -833,6 +833,35 @@ function GeometryBuilder(parameters)
 		this.errored = true;
 		console.error("The version specified at \"{0}\"/version is either not a number, not finite, or non-existant.".format(parameters.path));
 	}
+	var functionNames = Object.keys(parameters.functions);
+	var functions = functionNames.map(function getFunctionFromFunctionName(functionName)
+	{
+		if(!this.errored)
+		{
+			var functionInfo = parameters.functions[functionName];
+			var type = functionInfo.type || 0;
+			switch(type)
+			{
+				case 0:
+				{
+					return Reflect.construct.call(undefined, Function, functionNames.concat([ "previousProperties", "properties" ]).concat([ functionInfo.script ]));
+				}
+				case 1:
+				{
+					return Reflect.construct.call(undefined, Function, functionNames.concat([ "vertex", "previousProperties", "properties" ]).concat([ functionInfo.script ]));
+				}
+				case 2:
+				{
+					return Reflect.construct.call(undefined, Function, functionNames.concat([ "triangle", "previousProperties", "properties" ]).concat([ functionInfo.script ]));
+				}
+				default:
+				{
+					this.errored = true;
+					console.error("The function type \"{0}\" specified at \"{1}\"/functions/{2}/type is not a valid type. Must be either 1, 2, or 0/nothing.".format(type, parameters.path, functionName));
+				}
+			}
+		}
+	}, this);
 	var properties = [ ];
 	var propertiesJson = json.properties || { };
 	if(propertiesJson.order instanceof Array)
@@ -868,7 +897,7 @@ function GeometryBuilder(parameters)
 		updateVertices: { value: function updateVertices()
 		{
 			this.vertexCache = [ ];
-			var rebuildTriangles = this.builder.updateVertices.apply(undefined, [ this.cacheVertex, this.previousProperties, this.properties ].concat(this.builder.functions));
+			var rebuildTriangles = this.builder.updateVertices.apply(undefined, [ this.cacheVertex, this.previousProperties, this.properties ]);
 			if(!rebuildTriangles && this.allocation)
 			{
 				this.vertexCache.forEach(function putVertex(vertex)
@@ -882,7 +911,7 @@ function GeometryBuilder(parameters)
 		buildTriangles: { value: function buildTriangles()
 		{
 			this.triangleCache = [ ];
-			var allocationInfo = this.builder.buildTriangles.apply(undefined, [ this.cacheTriangle, this.previousProperties, this.properties ].concat(this.builder.functions));
+			var allocationInfo = this.builder.buildTriangles.apply(undefined, [ this.cacheTriangle, this.previousProperties, this.properties ]);
 			if(!this.allocation)
 			{
 				this.allocation = this.layer.triangleBuffer.allocate(allocationInfo[0], allocationInfo[1]);
@@ -939,35 +968,6 @@ function GeometryBuilder(parameters)
 			}, this);
 		}
 	}, this);
-	var functionNames = Object.keys(parameters.functions);
-	var functions = functionNames.map(function getFunctionFromFunctionName(functionName)
-	{
-		if(!this.errored)
-		{
-			var functionInfo = parameters.functions[functionName];
-			var type = functionInfo.type || 0;
-			switch(type)
-			{
-				case 0:
-				{
-					return Reflect.construct.call(undefined, Function, [ "previousProperties", "properties" ].concat([ functionInfo.script ]));
-				}
-				case 1:
-				{
-					return Reflect.construct.call(undefined, Function, [ "vertex", "previousProperties", "properties" ].concat([ functionInfo.script ]));
-				}
-				case 2:
-				{
-					return Reflect.construct.call(undefined, Function, [ "triangle", "previousProperties", "properties" ].concat([ functionInfo.script ]));
-				}
-				default:
-				{
-					this.errored = true;
-					console.error("The function type \"{0}\" specified at \"{1}\"/functions/{2}/type is not a valid type. Must be either 1, 2, or 0/nothing.".format(type, parameters.path, functionName));
-				}
-			}
-		}
-	}, this);
 	if(!this.errored)
 	{
 		this.geometryPrototype = function GeometryPrototype(parameters)
@@ -996,8 +996,8 @@ function GeometryBuilder(parameters)
 			version: { value: version },
 			defaults: { value: defaults },
 			functions: { value: functions },
-			updateVertices: { value: json.updateVertices ? Reflect.construct.call(undefined, Function, [ "vertex", "previousProperties", "properties" ].concat(functionNames).concat([ json.updateVertices ])) : constant(false) },
-			buildTriangles: { value: json.buildTriangles ? Reflect.construct.call(undefined, Function, [ "triangle", "previousProperties", "properties" ].concat(functionNames).concat([ json.buildTriangles ])) : constant([ 0, 0 ]) },
+			updateVertices: { value: json.updateVertices ? function synthesizeUpdateVerticesFunction() { var func = Reflect.construct.call(undefined, Function, functionNames.concat([ "vertex", "previousProperties", "properties" ]).concat([ json.updateVertices ])); return func.bind.apply(func, [ undefined ].concat(functions)); }() : constant(false) },
+			buildTriangles: { value: json.buildTriangles ? function synthesizeBuildTrianglesFunction() { var func = Reflect.construct.call(undefined, Function, functionNames.concat([ "triangle", "previousProperties", "properties" ]).concat([ json.buildTriangles ])); return func.bind.apply(func, [ undefined ].concat(functions)); }() : constant([ 0, 0 ]) },
 			cacheVertex: { value: function cacheVertex(index, vector, uv, normal, matrix)
 			{
 				uv = this.texture.getAbsoluteUV(uv || [ 0, 0 ]);
