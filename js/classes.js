@@ -811,6 +811,7 @@ Object.defineProperties(GeometryBuilder,
 		mat4.rotateZ(this.transformationMatrix, this.transformationMatrix, this.rotation[2]);
 		if(this.updateVertices())
 			this.buildTriangles();
+		this.previousProperties = Array.from(this.properties);
 	} }
 });
 Object.defineProperties(GeometryBuilder.prototype = Object.create(Object.prototype),
@@ -867,7 +868,7 @@ function GeometryBuilder(parameters)
 		updateVertices: { value: function updateVertices()
 		{
 			this.vertexCache = [ ];
-			var rebuildTriangles = this.builder.updateVertices.apply(undefined, [ this.cacheVertex ].concat(this.properties));
+			var rebuildTriangles = this.builder.updateVertices.apply(undefined, [ this.cacheVertex, this.previousProperties, this.properties ].concat(this.builder.functions));
 			if(!rebuildTriangles && this.allocation)
 			{
 				this.vertexCache.forEach(function putVertex(vertex)
@@ -881,7 +882,7 @@ function GeometryBuilder(parameters)
 		buildTriangles: { value: function buildTriangles()
 		{
 			this.triangleCache = [ ];
-			var allocationInfo = this.builder.buildTriangles.apply(undefined, [ this.cacheTriangle ].concat(this.properties));
+			var allocationInfo = this.builder.buildTriangles.apply(undefined, [ this.cacheTriangle, this.previousProperties, this.properties ].concat(this.builder.functions));
 			if(!this.allocation)
 			{
 				this.allocation = this.layer.triangleBuffer.allocate(allocationInfo[0], allocationInfo[1]);
@@ -915,6 +916,56 @@ function GeometryBuilder(parameters)
 					this.requestUpdate();
 				}
 			};
+			Object.keys(propertyJson.aliases || { }).forEach(function addPropertyAliasToGeometryPrototype(aliasName)
+			{
+
+				if(!this.errored && properties[aliasName])
+				{
+					this.errored = true;
+					console.error("The alias \"{0}\" at \"{1}\"/properties/{2}/aliases/{0} to the property \"{2}\" already exists at \"{1}\"/properties/{o}".format(aliasName, parameters.path, propertyName));
+				}
+				if(!this.errored)
+				{
+					var aliasValueTransformer = propertyJson.aliases[aliasName] ? new Function("value", propertyJson.aliases[aliasName]) : self;
+					geometryPrototypeProperties[aliasName] =
+					{
+						set: function setProperty(value)
+						{
+							this.properties[propertyIndex] = aliasValueTransformer(value) || defaultValue;
+							this.requestUpdate();
+						}
+					};
+				}
+			}, this);
+		}
+	}, this);
+	var functionNames = Object.keys(parameters.functions);
+	var functions = functionNames.map(function getFunctionFromFunctionName(functionName)
+	{
+		if(!this.errored)
+		{
+			var functionInfo = parameters.functions[functionName];
+			var type = functionInfo.type || 0;
+			switch(type)
+			{
+				case 0:
+				{
+					return Reflect.construct.call(undefined, Function, [ "previousProperties", "properties" ].concat([ functionInfo.script ]));
+				}
+				case 1:
+				{
+					return Reflect.construct.call(undefined, Function, [ "vertex", "previousProperties", "properties" ].concat([ functionInfo.script ]));
+				}
+				case 2:
+				{
+					return Reflect.construct.call(undefined, Function, [ "triangle", "previousProperties", "properties" ].concat([ functionInfo.script ]));
+				}
+				default:
+				{
+					this.errored = true;
+					console.error("The function type \"{0}\" specified at \"{1}\"/functions/{2}/type is not a valid type. Must be either 1, 2, or 0/nothing.".format(type, parameters.path, functionName));
+				}
+			}
 		}
 	}, this);
 	if(!this.errored)
@@ -931,20 +982,22 @@ function GeometryBuilder(parameters)
 			this.rotation.watch(this.requestUpdate.bind(this));
 			this.textureWatcher = this.texture.watch(this.requestUpdate.bind(this));
 			this.properties = Array.from(defaults);
+			this.previousProperties = Array.from(defaults);
 			this.cacheVertex = this.builder.cacheVertex.bind(this);
 			this.cacheTriangle = this.builder.cacheTriangle.bind(this);
 			this.matrix = mat4.identity([ ]);
 		};
 		Object.defineProperties(this.geometryPrototype.prototype = Object.create(MovingObject.prototype), Object.assign(
 		{
-			constructor: { value: this.geometryPrototype },
+			constructor: { value: this.geometryPrototype }
 		}, geometryPrototypeProperties));
 		Object.defineProperties(this,
 		{
 			version: { value: version },
 			defaults: { value: defaults },
-			updateVertices: { value: json.updateVertices ? Reflect.construct.call(undefined, Function, [ "vertex" ].concat(properties).concat([ json.updateVertices ])) : constant(false) },
-			buildTriangles: { value: json.buildTriangles ? Reflect.construct.call(undefined, Function, [ "triangle" ].concat(properties).concat([ json.buildTriangles ])) : constant([ 0, 0 ]) },
+			functions: { value: functions },
+			updateVertices: { value: json.updateVertices ? Reflect.construct.call(undefined, Function, [ "vertex", "previousProperties", "properties" ].concat(functionNames).concat([ json.updateVertices ])) : constant(false) },
+			buildTriangles: { value: json.buildTriangles ? Reflect.construct.call(undefined, Function, [ "triangle", "previousProperties", "properties" ].concat(functionNames).concat([ json.buildTriangles ])) : constant([ 0, 0 ]) },
 			cacheVertex: { value: function cacheVertex(index, vector, uv, normal, matrix)
 			{
 				uv = this.texture.getAbsoluteUV(uv || [ 0, 0 ]);
@@ -2906,7 +2959,7 @@ function Light(parameters)
 Object.defineProperties(Layer.prototype = Object.create(Watchable.prototype),
 {
 	constructor: { value: Layer },
-	addGeometry: { value: function addGeometry(name, position, rotation, texture, properties)
+	addGeometry: { value: function addGeometry(name, position, rotation, texture, properties, onBuilt)
 	{
 		if(this.game.geometryBuilders[name])
 		{
@@ -2915,7 +2968,7 @@ Object.defineProperties(Layer.prototype = Object.create(Watchable.prototype),
 			{
 				propertyValues.push(entry[1]);
 			});
-			return this.game.geometryBuilders[name]({ layer: this, position: position, rotation: rotation, texture: texture, propertyValues: propertyValues });
+			this.game.geometryBuilders[name]({ layer: this, position: position, rotation: rotation, texture: texture, propertyValues: propertyValues }, onBuilt || emptyFunction);
 		}
 		else
 			console.error("No such geometry with the name \"{0}\"".format(name));
@@ -3236,20 +3289,55 @@ function Game(parameters)
 	{
 		var geometryName = entry[0];
 		var pendingBuilds = [ ];
-		this.geometryBuilders[geometryName] = function addGeometryBuildToPending(parameters)
+		this.geometryBuilders[geometryName] = function addGeometryBuildToPending(parameters, onBuilt)
 		{
-			pendingBuilds.push(parameters);
+			pendingBuilds.push([ parameters, onBuilt ]);
 		};
 		requestText("resources/geometry_builders/" + entry[1], function processGeometryBuilder(text)
 		{
 			if(text)
 			{
-				var builder = new GeometryBuilder({ path: "{0}/resources/geometry_builders/{1}".format(window.origin, entry[1]), json: JSON.parse(text) });
-				var buildGeometry = this.geometryBuilders[geometryName] = function buildGeometry(parameters)
+				var json = JSON.parse(text);
+				var functions = json.functions || { };
+				var functionNames = Object.keys(functions);
+				var functionsLoaded = 0;
+				var createGeometryBuilderIfFunctionsLoaded = function createGeometryBuilderIfFunctionsLoaded()
 				{
-					return new builder.geometryPrototype(parameters);
-				};
-				pendingBuilds.forEach(buildGeometry);
+					if(functionsLoaded == functionNames.length)
+					{
+						var builder = new GeometryBuilder({ path: "{0}/resources/geometry_builders/{1}".format(window.origin, entry[1]), json: json, functions: functions });
+						var buildGeometry = this.geometryBuilders[geometryName] = function buildGeometry(parameters, onBuilt)
+						{
+							onBuilt(new builder.geometryPrototype(parameters));
+						};
+						pendingBuilds.forEach(buildGeometry.apply.bind(undefined, undefined));
+					}
+				}.bind(this);
+				createGeometryBuilderIfFunctionsLoaded();
+				functionNames.forEach(function requestScript(functionName)
+				{
+					var path = functions[functionName].path;
+					if(path)
+						this.requestScript(path, function putScriptIntoFunctions(script)
+						{
+							if(script)
+							{
+								functions[functionName].script = script;
+								functionsLoaded++;
+								createGeometryBuilderIfFunctionsLoaded();
+							}
+							else
+							{
+								var netPath = path;
+								while(netPath.indexOf(".") >= 0)
+									netPath = netPath.replace(".", "/");
+								console.error("The script listed at \"{0}/resources/directory.json\"/scripts/{1}[{2}] is either non-existant or empty at \"{0}/resources/scripts/{3}.js\"".format(window.origin, startNetPath, index, netPath));
+
+							}
+						});
+					else
+						console.error("The path at \"{0}/resources/geometry_builders/{1}.json\"/functions/{2}/path is either non-existant or empty.".format(window.origin, entry[1], functionName));
+				}, this);
 			}
 			else
 				console.error("The geometry builder \"{0}\" is either non-existant or empty at \"{1}/resources/geometry_builders/{2}\".".format(entry[0], window.origin, entry[1]));

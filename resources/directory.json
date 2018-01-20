@@ -7,6 +7,12 @@
 	},
 	"scripts":
 	{
+		"geometric":
+		{
+			"rectangular_prism": [ "updateVertices", "buildTriangles" ],
+			"plane": [ "updateVertices", "buildTriangles" ],
+			"sphere": [ "updateVertices", "buildTriangles" ]
+		}
 	},
 	"geometryBuilders":
 	{

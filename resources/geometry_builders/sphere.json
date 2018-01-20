@@ -9,6 +9,19 @@
 		"slices": { "default": "return 16", "transformer": "return Math.pow(Math.ceil(Math.log2(Math.abs(Number.parseInt(value)))), 2) || 16" },
 		"stacks": { "default": "return 16", "transformer": "return Math.pow(Math.ceil(Math.log2(Math.abs(Number.parseInt(value)))), 2) || 16" }
 	},
-	"updateVertices": "var vector=[0,radius,0];var rotincrs=[Math.PI2/slices,Math.PI/stacks];var matrix=mat4.identity([]);for(var v=0;v<=Math.floor(stacks*verticalcircumfrence);v++){var verticalprogress=v/stacks;for(var h=0;h<=Math.floor(slices*horizontalcircumfrence);h++){mat4.multiply(matrix,mat4.rotateY([ ],mat4.identity([ ]),Math.PI2*h/slices),mat4.rotateX([ ],mat4.identity([ ]),Math.PI*verticalprogress));vertex(v*(stacks+1)+h,vector,[h/slices,verticalprogress],vector,mat4.copy([ ],matrix));}}return false;",
-	"buildTriangles": "for(var v=0;v<Math.floor(stacks*verticalcircumfrence);v++){for(var h=0;h<Math.floor(slices*horizontalcircumfrence);h++){var triangleStart=(v*stacks+h)*2;triangle(triangleStart,v*(stacks+1)+h,v*(stacks+1)+h+1,(v+1)*(stacks+1)+h);triangle(triangleStart+1,v*(stacks+1)+h+1,(v+1)*(stacks+1)+h+1,(v+1)*(stacks+1)+h);}}return[(slices+1)*(stacks+1),slices*stacks*2];"
+	"functions":
+	{
+		"updateVertices":
+		{
+			"path": "geometric.sphere.updateVertices",
+			"type": 1
+		},
+		"buildTriangles":
+		{
+			"path": "geometric.sphere.buildTriangles",
+			"type": 2
+		}
+	},
+	"updateVertices": "return updateVertices.apply(undefined, arguments);",
+	"buildTriangles": "return buildTriangles.apply(undefined, arguments);"
 }
