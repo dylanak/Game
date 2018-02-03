@@ -2179,7 +2179,7 @@ Object.defineProperties(GeometryAllocation.prototype = Object.create(Object.prot
 		this.triangleBuffer.vertexBuffer.matrices = matrices;
 		var triangles = this.triangleBuffer.triangles instanceof Uint16Array ? Array.prototype.slice.call(this.triangleBuffer.triangles) : this.triangleBuffer.triangles;
 		if(this.triangleRange)
-			triangles.fill(0, this.triangleRange[0], this.triangleRange[1]);
+			triangles.fill(0, this.triangleRange[0] * 3, this.triangleRange[1] * 3);
 		this.triangleBuffer.triangles = triangles.concat(new Array(triangleCount * 3).fill(0));
 		this.triangleRange = [ this.triangleBuffer.triangles.length / 3 - triangleCount, this.triangleBuffer.triangles.length / 3 ];
 		this.vertexCount = vertexCount;
