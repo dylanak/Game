@@ -2866,8 +2866,8 @@ Object.defineProperties(Player.prototype = Object.create(MovingObject.prototype)
 		}
 		if(!isNaN(lookAngle))
 		{
-			this.rotation[0] = Math.max(Math.min(this.rotation[0] + Math.cos(lookAngle) * lookDistance * Math.RTD, Math.HALFPI), -Math.HALFPI);
-			this.rotation[1] += Math.sin(lookAngle) * lookDistance * Math.RTD;
+			this.rotation[0] = Math.max(Math.min(this.rotation[0] + Math.cos(lookAngle) * lookDistance * Math.pow(Math.RTD, -1), Math.HALFPI), -Math.HALFPI);
+			this.rotation[1] += Math.sin(lookAngle) * lookDistance * Math.pow(Math.RTD, -1);
 		}
 	} },
 	controlsLoop: { value: function controlsLoop(timestamps, last, now)
@@ -2893,8 +2893,8 @@ Object.defineProperties(Player.prototype = Object.create(MovingObject.prototype)
 			}
 			if(!isNaN(lookAngle))
 			{
-				this.rotation[0] = Math.max(Math.min(this.rotation[0] + Math.cos(lookAngle) * lookDistance * Math.RTD, Math.HALFPI), -Math.HALFPI);
-				this.rotation[1] += Math.sin(lookAngle) * lookDistance * Math.RTD;
+				this.rotation[0] = Math.max(Math.min(this.rotation[0] + Math.cos(lookAngle) * lookDistance * Math.pow(Math.RTD, -1), Math.HALFPI), -Math.HALFPI);
+				this.rotation[1] += Math.sin(lookAngle) * lookDistance * Math.pow(Math.RTD, -1);
 			}
 			var moveAngle = NaN;
 			var moveDistance = 1;
