@@ -913,13 +913,12 @@ function GeometryBuilder(parameters)
 			this.triangleCache = [ ];
 			var allocationInfo = this.builder.buildTriangles.apply(undefined, [ this.cacheTriangle, this.previousProperties, this.properties ]);
 			if(!this.allocation)
+				this.allocation = new GeometryAllocation(this.layer.triangleBuffer);
+			this.allocation.allocate(allocationInfo[0], allocationInfo[1]);
+			this.vertexCache.forEach(function putVertex(vertex)
 			{
-				this.allocation = this.layer.triangleBuffer.allocate(allocationInfo[0], allocationInfo[1]);
-				this.vertexCache.forEach(function putVertex(vertex)
-				{
-					this.allocation.setVertex.apply(this.allocation, vertex);
-				}, this);
-			}
+				this.allocation.setVertex.apply(this.allocation, vertex);
+			}, this);
 			this.triangleCache.forEach(function putTriangle(triangle)
 			{
 				this.allocation.setTriangle(triangle[0], this.allocation.getVertexIndex(triangle[1]), this.allocation.getVertexIndex(triangle[2]), this.allocation.getVertexIndex(triangle[3]));
@@ -1998,50 +1997,6 @@ Object.defineProperties(GeometryAllocation.prototype = Object.create(Object.prot
 			this.triangleBuffer.vertexBuffer.matrices.splice.apply(this.triangleBuffer.vertexBuffer.matrices, [ matrixIndex, 16 ].concat(matrix));
 		}).bind(this);
 	} },
-	disallocate: { value: function disallocate()
-	{
-		this.buffer.allocations.splice(this.index, 1);
-		var disallocations = [ ];
-		var i = 0;
-		var range = null;
-		var allocation = this;
-		this.buffer.disallocations.forEach(function expandExistingDisallocations(disallocation)
-		{
-			if(range)
-			{
-				if(range[1] >= disallocation[0])
-				{
-					if(range[1] <= disallocation[1])
-					{
-						disallocations.push([ disallocations.pop()[0], disallocation[1] ]);
-						range = null;
-					}
-					else
-						disallocations.push([ disallocations.pop()[0], range[1] ]);
-					return;
-				}
-			}
-			for(; i < allocation.ranges.length; i++)
-			{
-				range = allocation.ranges[i];
-				if((range[0] >= disallocation[0] && range[0] <= disallocation[1]) || (range[1] >= disallocation[0] && range[1] <= disallocation[1]))
-				{
-					range = [ Math.min(range[0], disallocation[0]), Math.max(range[1], disallocation[1]) ];
-					disallocations.push(range);
-					i++;
-					return;
-				}
-				else if(range[0] > disallocation[1] && range[0] > disallocation[1])
-					break;
-				else
-					disallocations.push(range);
-			}
-			range = null;
-			disallocations.push(disallocation);
-		});
-		this.buffer.disallocations = disallocations;
-		this.buffer.triangles = new Uint16Array(Array.from(this.buffer.triangles).splice(this.triangleRange[0], this.triangleRange[1] - this.triangleRange[0]));
-	} },
 	setVector: { value: function setVector(vertex, vector)
 	{
 		var index = this.getVertexIndex(vertex);
@@ -2146,43 +2101,69 @@ Object.defineProperties(GeometryAllocation.prototype = Object.create(Object.prot
 	getTriangleIndex: { value: function getTriangleIndex(triangle)
 	{
 		return (this.triangleRange[1] - this.triangleRange[0] > triangle ? this.triangleRange[0] + triangle : 0) * 3;
-	} }
-});
-
-function GeometryAllocation(triangleBuffer, index, vertexRanges, triangleRange)
-{
-	this.triangleBuffer = triangleBuffer;
-	this.index = index;
-	this.vertexRanges = vertexRanges;
-	this.triangleRange = triangleRange;
-	this.unappliedMatrices = [ ];
-}
-
-Object.defineProperties(TriangleBuffer.prototype = Object.create(Object.prototype),
-{
-	constructor: { value: TriangleBuffer },
+	} },
 	allocate: { value: function allocate(vertexCount, triangleCount)
 	{
-		triangleCount = triangleCount || vertexCount;
-		var vertexRanges = [ ];
-		var allocated = 0;
+		var vertexRanges = this.vertexRanges;
+		var newVertexRanges = [ ];
+		var lastVertexRangeIndex = -1;
+		var lastVertexRange = undefined;
+		var nextVertexRange = vertexRanges[0];
+		var verticesAllocated = this.vertexCount;
 		var disallocations = [ ];
-		this.vertexBuffer.disallocations.forEach(function addRangeToAllocate(disallocation)
+		this.triangleBuffer.vertexBuffer.disallocations.forEach(function addRangeToAllocate(disallocation)
 		{
-			var to = Math.min(disallocation[0] + Math.max(vertexCount - allocated, 0), disallocation[1]);
-			if(allocated < vertexCount)
-				vertexRanges.push([ disallocation[0], to ]);
-			allocated += to - disallocation[0];
+			var to = Math.min(disallocation[0] + Math.max(vertexCount - verticesAllocated, 0), disallocation[1]);
+			if(verticesAllocated < vertexCount)
+			{
+				while(nextVertexRange && nextVertexRange[0] <  to)
+				{
+					lastVertexRange = nextVertexRange;
+					lastVertexRangeIndex++;
+					nextVertexRange = vertexRanges[lastVertexRangeIndex + 1];
+				}
+				var rangeIndex = lastVertexRangeIndex + 1;
+				var range = [ disallocation[0], to ];
+				if(lastVertexRange && lastVertexRange[1] >= disallocation[0])
+				{
+					rangeIndex = -1;
+					range[0] = lastVertexRange[0];
+					lastVertexRange = range;
+					if(lastVertexRangeIndex >= 0)
+						vertexRanges[lastVertexRangeIndex] = range;
+					else
+					{
+						lastVertexRangeIndex = 0;
+						vertexRanges.splice(0, 0, range);
+					}
+				}
+				if(nextVertexRange && nextVertexRange[0] <= to)
+				{
+					range[1] = nextVertexRange[1];
+					if(rangeIndex >= 0)
+					{
+						rangeIndex = -1;
+						vertexRanges.splice(lastVertexRangeIndex + 1, 1, range);
+					}
+					else
+						vertexRanges.splice(lastVertexRangeIndex + 1, 1);
+					nextVertexRange = vertexRanges[lastVertexRangeIndex + 1];
+				}
+				if(rangeIndex >= 0)
+					vertexRanges.splice(rangeIndex, 0, range);
+				newVertexRanges.push(range);
+			}
+			verticesAllocated += to - disallocation[0];
 			if(to != disallocation[1])
-			disallocations.push([ to, disallocation[1] ]);
+				disallocations.push([ to, disallocation[1] ]);
 		});
-		this.vertexBuffer.disallocations = disallocations;
-		var vectors = this.vertexBuffer.vectors instanceof Float32Array ? Array.from(this.vertexBuffer.vectors) : this.vertexBuffer.vectors;
-		var uvs = this.vertexBuffer.uvs instanceof Float32Array ? Array.from(this.vertexBuffer.uvs) : this.vertexBuffer.uvs;
-		var normals = this.vertexBuffer.normals instanceof Float32Array ? Array.from(this.vertexBuffer.normals) : this.vertexBuffer.normals;
-		var matrices = this.vertexBuffer.matrices instanceof Float32Array ? Array.from(this.vertexBuffer.matrices) : this.vertexBuffer.matrices;
+		this.triangleBuffer.vertexBuffer.disallocations = disallocations;
+		var vectors = this.triangleBuffer.vertexBuffer.vectors instanceof Float32Array ? Array.from(this.triangleBuffer.vertexBuffer.vectors) : this.triangleBuffer.vertexBuffer.vectors;
+		var uvs = this.triangleBuffer.vertexBuffer.uvs instanceof Float32Array ? Array.from(this.triangleBuffer.vertexBuffer.uvs) : this.triangleBuffer.vertexBuffer.uvs;
+		var normals = this.triangleBuffer.vertexBuffer.normals instanceof Float32Array ? Array.from(this.triangleBuffer.vertexBuffer.normals) : this.triangleBuffer.vertexBuffer.normals;
+		var matrices = this.triangleBuffer.vertexBuffer.matrices instanceof Float32Array ? Array.from(this.triangleBuffer.vertexBuffer.matrices) : this.triangleBuffer.vertexBuffer.matrices;
 		var identityMatrix = mat4.identity([ ]);
-		vertexRanges.forEach(function addVertexToRange(range)
+		newVertexRanges.forEach(function addVertexToRange(range)
 		{
 			for(var i = range[0]; i < range[1]; i++)
 			{
@@ -2192,16 +2173,33 @@ Object.defineProperties(TriangleBuffer.prototype = Object.create(Object.prototyp
 				matrices.splice.apply(matrices, [ i * 16, 0 ].concat(identityMatrix));
 			}
 		});
-		this.vertexBuffer.vectors = vectors;
-		this.vertexBuffer.uvs = uvs;
-		this.vertexBuffer.normals = normals;
-		this.vertexBuffer.matrices = matrices;
-		var triangles = this.triangles instanceof Uint16Array ? Array.from(this.triangles) : this.triangles;
-		this.triangles = triangles.concat(new Array(triangleCount * 3).fill(0));
-		var allocation = new GeometryAllocation(this, this.vertexBuffer.allocations.length, vertexRanges, [ this.triangles.length / 3 - triangleCount, this.triangles.length / 3 ]);
-		this.vertexBuffer.allocations.push(allocation);
-		return allocation;
+		this.triangleBuffer.vertexBuffer.vectors = vectors;
+		this.triangleBuffer.vertexBuffer.uvs = uvs;
+		this.triangleBuffer.vertexBuffer.normals = normals;
+		this.triangleBuffer.vertexBuffer.matrices = matrices;
+		var triangles = this.triangleBuffer.triangles instanceof Uint16Array ? Array.from(this.triangleBuffer.triangles) : this.triangleBuffer.triangles;
+		if(this.triangleRange)
+			triangles.fill(0, this.triangleRange[0], this.triangleRange[1]);
+		this.triangleBuffer.triangles = triangles.concat(new Array(triangleCount * 3).fill(0));
+		this.triangleRange = [ this.triangleBuffer.triangles.length / 3 - triangleCount, this.triangleBuffer.triangles.length / 3 ];
+		this.vertexCount = vertexCount;
+		this.triangleCount = triangleCount;
 	} }
+});
+
+function GeometryAllocation(triangleBuffer)
+{
+	this.triangleBuffer = triangleBuffer;
+	this.index = this.triangleBuffer.vertexBuffer.allocations.push(this);
+	this.vertexCount = 0;
+	this.vertexRanges = [ ];
+	this.triangleCount = 0;
+	this.unappliedMatrices = [ ];
+}
+
+Object.defineProperties(TriangleBuffer.prototype = Object.create(Object.prototype),
+{
+	constructor: { value: TriangleBuffer }
 });
 
 function TriangleBuffer(vertexBuffer)
