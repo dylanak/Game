@@ -3081,7 +3081,10 @@ Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prot
 		{
 			var scriptRequest = this.scriptRequests.getPropertyAt(path);
 			if(scriptRequest)
-				scriptRequest.addEventListener("load", readyFunction);
+				scriptRequest.addEventListener("load", function fireReadyFunction()
+				{
+					readyFunction(this.status == 200 ? this.responseText : "");
+				});
 			else
 				readyFunction("");
 		}
