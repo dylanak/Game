@@ -3,11 +3,11 @@
 	"properties":
 	{
 		"order": [ "radius", "horizontalcircumfrence", "verticalcircumfrence", "slices", "stacks" ],
-		"radius": { "default": "return .5", "transformer": "return Math.abs(Number.parseFloat(value)) || .5", "aliases": { "diameter": "return Math.abs(Number.parseFloat(value)) / 2 || .5" } },
-		"horizontalcircumfrence": { "default": "return 1", "transformer": "return Math.min(Math.abs(Number.parseFloat(value)), 1) || 1" },
-		"verticalcircumfrence": { "default": "return 1", "transformer": "return Math.min(Math.abs(Number.parseFloat(value)), 1) || 1"  },
-		"slices": { "default": "return 16", "transformer": "return Math.ceil(Math.abs(Number.parseFloat(value)) / 4) * 4 || 16" },
-		"stacks": { "default": "return 16", "transformer": "return Math.ceil(Math.abs(Number.parseFloat(value)) / 4) * 4 || 16" }
+		"radius": { "default": "return .5", "transformer": "return Math.abs(parseFloat(value)) || .5", "aliases": { "diameter": "return Math.abs(parseFloat(value)) / 2 || .5" } },
+		"horizontalcircumfrence": { "default": "return 1", "transformer": "return Math.min(Math.abs(parseFloat(value)), 1) || 1" },
+		"verticalcircumfrence": { "default": "return 1", "transformer": "return Math.min(Math.abs(parseFloat(value)), 1) || 1"  },
+		"slices": { "default": "return 16", "transformer": "return Math.ceil(Math.abs(parseFloat(value)) / 4) * 4 || 16" },
+		"stacks": { "default": "return 16", "transformer": "return Math.ceil(Math.abs(parseFloat(value)) / 4) * 4 || 16" }
 	},
 	"functions":
 	{

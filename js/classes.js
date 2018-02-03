@@ -42,7 +42,7 @@ function averageRadians(a, b)
 
 function callSuper(thisArg, name)
 {
-	return Object.getPrototypeOf(Object.getPrototypeOf(thisArg))[name].apply(thisArg, Array.from(arguments).splice(2, arguments.length - 2));
+	return Object.getPrototypeOf(Object.getPrototypeOf(thisArg))[name].apply(thisArg, Array.prototype.slice.call(arguments).splice(2, arguments.length - 2));
 }
 
 function isUnicodeNumber(unicode)
@@ -230,7 +230,7 @@ function Watchable(parameters)
 {
 	parameters = parameters || { };
 	this.watchers = [ ];
-	Array.from(parameters.watchers || [ ]).forEach(function addWatcherFromParameters(watcher)
+	Array.prototype.slice.call(parameters.watchers || [ ]).forEach(function addWatcherFromParameters(watcher)
 	{
 		this.addWatcher(watcher);
 	}, this);
@@ -359,7 +359,7 @@ Vector.elements.forEach(function addVectorIWithElementI(elementName, elementInde
 		constructor: { value: vectorIPrototype },
 		copy: { value: function copy()
 		{
-			return new vectorIPrototype(Array.from(this));
+			return new vectorIPrototype(Array.prototype.slice.call(this));
 		} },
 		add: { value: function add()
 		{
@@ -413,7 +413,7 @@ Vector.forEach(function addRotationVectorI(vectorIPrototype, index)
 		{
 			vector[watchableElementName].callback = wrapRadians;
 		});
-	var callbackSetters = Array.from(RotationVector.callbackSetters);
+	var callbackSetters = Array.prototype.slice.call(RotationVector.callbackSetters);
 	var rotationVectorIPrototype = function RotationVectorI(parameters)
 	{
 		vectorIPrototype.call(this, parameters);
@@ -427,7 +427,7 @@ Vector.forEach(function addRotationVectorI(vectorIPrototype, index)
 		constructor: { value: rotationVectorIPrototype },
 		copy: { value: function copy()
 		{
-			return new rotationVectorIPrototype(Array.from(this));
+			return new rotationVectorIPrototype(Array.prototype.slice.call(this));
 		} }
 
 	});
@@ -483,10 +483,10 @@ Vector.forEach(function addAdditiveVectorI(vectorIPrototype, index)
 			childVector[watchableElementName].watch(childVectorElementWatcher.bind(vector));
 		});
 	}
-	var baseValueSetters = Array.from(AdditiveVector.baseValueSetters);
-	var watchableValueSetters = Array.from(AdditiveVector.watchableValueSetters);
-	var baseValueWatchers = Array.from(AdditiveVector.baseValueWatchers);
-	var childVectorWatchers = Array.from(AdditiveVector.childVectorWatchers);
+	var baseValueSetters = Array.prototype.slice.call(AdditiveVector.baseValueSetters);
+	var watchableValueSetters = Array.prototype.slice.call(AdditiveVector.watchableValueSetters);
+	var baseValueWatchers = Array.prototype.slice.call(AdditiveVector.baseValueWatchers);
+	var childVectorWatchers = Array.prototype.slice.call(AdditiveVector.childVectorWatchers);
 	var additiveVectorIPrototype = function AdditiveVectorI(parameters)
 	{
 		parameters = parameters || { };
@@ -586,10 +586,10 @@ Vector.forEach(function addMultiplicativeVectorI(vectorIPrototype, index)
 			childVector[watchableElementName].watch(childVectorElementWatcher.bind(vector));
 		});
 	}
-	var baseValueSetters = Array.from(MultiplicativeVector.baseValueSetters);
-	var watchableValueSetters = Array.from(MultiplicativeVector.watchableValueSetters);
-	var baseValueWatchers = Array.from(MultiplicativeVector.baseValueWatchers);
-	var childVectorWatchers = Array.from(MultiplicativeVector.childVectorWatchers);
+	var baseValueSetters = Array.prototype.slice.call(MultiplicativeVector.baseValueSetters);
+	var watchableValueSetters = Array.prototype.slice.call(MultiplicativeVector.watchableValueSetters);
+	var baseValueWatchers = Array.prototype.slice.call(MultiplicativeVector.baseValueWatchers);
+	var childVectorWatchers = Array.prototype.slice.call(MultiplicativeVector.childVectorWatchers);
 	var multiplicativeVectorIPrototype = function MultiplicativeVectorI(parameters)
 	{
 		parameters = parameters || { };
@@ -811,7 +811,7 @@ Object.defineProperties(GeometryBuilder,
 		mat4.rotateZ(this.transformationMatrix, this.transformationMatrix, this.rotation[2]);
 		if(this.updateVertices())
 			this.buildTriangles();
-		this.previousProperties = Array.from(this.properties);
+		this.previousProperties = Array.prototype.slice.call(this.properties);
 	} }
 });
 Object.defineProperties(GeometryBuilder.prototype = Object.create(Object.prototype),
@@ -827,7 +827,7 @@ function GeometryBuilder(parameters)
 		this.errored = true;
 		console.error("The json at \"{0}\" is either non-existant or empty.".format(parameters.path));
 	}
-	var version = Number.parseFloat(json.version);
+	var version = parseFloat(json.version);
 	if(!this.errored && !Number.isFinite(version))
 	{
 		this.errored = true;
@@ -980,8 +980,8 @@ function GeometryBuilder(parameters)
 			this.position.watch(this.requestUpdate.bind(this));
 			this.rotation.watch(this.requestUpdate.bind(this));
 			this.textureWatcher = this.texture.watch(this.requestUpdate.bind(this));
-			this.properties = Array.from(defaults);
-			this.previousProperties = Array.from(defaults);
+			this.properties = Array.prototype.slice.call(defaults);
+			this.previousProperties = Array.prototype.slice.call(defaults);
 			this.cacheVertex = this.builder.cacheVertex.bind(this);
 			this.cacheTriangle = this.builder.cacheTriangle.bind(this);
 			this.matrix = mat4.identity([ ]);
@@ -1082,7 +1082,7 @@ Object.defineProperties(Timestamp.prototype = Object.create(Object.prototype),
 	} },
 	split: { value: function split()
 	{
-		var times = Array.from(arguments);
+		var times = Array.prototype.slice.call(arguments);
 		var timestamp = this;
 		var json = JSON.stringify(this.params);
 		times = times.filter(this.isInTimestamp.bind(this));
@@ -1110,7 +1110,7 @@ Object.defineProperties(Control.prototype = Object.create(Object.prototype),
 	constructor: { value: Control },
 	addControllers: { value: function addControllers()
 	{
-		Array.forEach(parameters, function addControllerIfAbsent(controller)
+		Array.prototype.forEach.call(parameters, function addControllerIfAbsent(controller)
 		{
 			if(!this.controllers.includes(controller))
 				this.controllers.push(controller);
@@ -1158,9 +1158,9 @@ Object.defineProperties(Control.prototype = Object.create(Object.prototype),
 				this.controls.controllers[controllerName] = [ ];
 			this.controls.controllers[controllerName].push(this);
 		}, this);
-		this.mouseControllers = Array.from(this.defaultMouseControllers);
-		this.keyboardControllers = Array.from(this.defaultKeyboardControllers);
-		this.gamepadControllers = Array.from(this.defaultGamepadControllers);	
+		this.mouseControllers = Array.prototype.slice.call(this.defaultMouseControllers);
+		this.keyboardControllers = Array.prototype.slice.call(this.defaultKeyboardControllers);
+		this.gamepadControllers = Array.prototype.slice.call(this.defaultGamepadControllers);	
 	} }
 });
 
@@ -1173,9 +1173,9 @@ function Control(controls, name, func, type, mouseControllerFilter, keyboardCont
 	this.mouseControllerFilter = mouseControllerFilter || constant(false);
 	this.keyboardControllerFilter = keyboardControllerFilter || constant(false);
 	this.gamepadControllerFilter = gamepadControllerFilter || constant(false);
-	this.defaultMouseControllers = Array.from(defaultMouseControllers);
-	this.defaultKeyboardControllers = Array.from(defaultKeyboardControllers);
-	this.defaultGamepadControllers = Array.from(defaultGamepadControllers);
+	this.defaultMouseControllers = Array.prototype.slice.call(defaultMouseControllers);
+	this.defaultKeyboardControllers = Array.prototype.slice.call(defaultKeyboardControllers);
+	this.defaultGamepadControllers = Array.prototype.slice.call(defaultGamepadControllers);
 	this.mouseControllers = [ ];
 	this.keyboardControllers = [ ];
 	this.gamepadControllers = [ ];
@@ -1541,7 +1541,7 @@ Object.defineProperties(Controls.prototype = Object.create(ElementEventListener.
 			var timestamps = Timestamp.splitAll.apply(null, function processControlTimestamps()
 			{	
 				var timestamps = [ ];
-				Array.forEach(arguments, function addControlTimestamps(ts)
+				Array.prototype.forEach.call(arguments, function addControlTimestamps(ts)
 				{
 					ts.forEach(function addControlTimestamp(timestamp, index, array)
 					{
@@ -1840,7 +1840,7 @@ Object.defineProperties(TextureMap.prototype = Object.create(Object.prototype),
 	loadTextures: { value: function loadTextures(imageLocations, readyFunction)
 	{
 		var ret = [ ];
-		var textures = Array.from(this.textures);
+		var textures = Array.prototype.slice.call(this.textures);
 		var loadedImages = textures.length;
 		var restitchIfAllLoaded = function restitchIfAllLoaded()
 		{
@@ -1893,7 +1893,7 @@ Object.defineProperties(TextureMap.prototype = Object.create(Object.prototype),
 			stitchedPixels += texture.image.width * texture.image.height;
 		});
 		var textureUVs;
-		var i = Math.ceil(Math.log2(Math.sqrt(stitchedPixels)));
+		var i = Math.ceil(Math.log(Math.sqrt(stitchedPixels)) * Math.LOG2E);
 		for(; Math.pow(2, i) < Infinity && !textureUVs;)
 			textureUVs = TextureMap.calculateTextureUVs(Math.pow(2, ++i), textures);
 		var stitchCanvas = document.createElement("canvas");
@@ -2033,7 +2033,7 @@ Object.defineProperties(GeometryAllocation.prototype = Object.create(Object.prot
 		if(index)
 		{
 			if(preventApplication)
-				this.unappliedMatrices[vertex] = Array.from(matrix);
+				this.unappliedMatrices[vertex] = Array.prototype.slice.call(matrix);
 			else
 			{
 				this.putMatrix(matrix, index * 16);
@@ -2158,10 +2158,10 @@ Object.defineProperties(GeometryAllocation.prototype = Object.create(Object.prot
 				disallocations.push([ to, disallocation[1] ]);
 		});
 		this.triangleBuffer.vertexBuffer.disallocations = disallocations;
-		var vectors = this.triangleBuffer.vertexBuffer.vectors instanceof Float32Array ? Array.from(this.triangleBuffer.vertexBuffer.vectors) : this.triangleBuffer.vertexBuffer.vectors;
-		var uvs = this.triangleBuffer.vertexBuffer.uvs instanceof Float32Array ? Array.from(this.triangleBuffer.vertexBuffer.uvs) : this.triangleBuffer.vertexBuffer.uvs;
-		var normals = this.triangleBuffer.vertexBuffer.normals instanceof Float32Array ? Array.from(this.triangleBuffer.vertexBuffer.normals) : this.triangleBuffer.vertexBuffer.normals;
-		var matrices = this.triangleBuffer.vertexBuffer.matrices instanceof Float32Array ? Array.from(this.triangleBuffer.vertexBuffer.matrices) : this.triangleBuffer.vertexBuffer.matrices;
+		var vectors = this.triangleBuffer.vertexBuffer.vectors instanceof Float32Array ? Array.prototype.slice.call(this.triangleBuffer.vertexBuffer.vectors) : this.triangleBuffer.vertexBuffer.vectors;
+		var uvs = this.triangleBuffer.vertexBuffer.uvs instanceof Float32Array ? Array.prototype.slice.call(this.triangleBuffer.vertexBuffer.uvs) : this.triangleBuffer.vertexBuffer.uvs;
+		var normals = this.triangleBuffer.vertexBuffer.normals instanceof Float32Array ? Array.prototype.slice.call(this.triangleBuffer.vertexBuffer.normals) : this.triangleBuffer.vertexBuffer.normals;
+		var matrices = this.triangleBuffer.vertexBuffer.matrices instanceof Float32Array ? Array.prototype.slice.call(this.triangleBuffer.vertexBuffer.matrices) : this.triangleBuffer.vertexBuffer.matrices;
 		var identityMatrix = mat4.identity([ ]);
 		newVertexRanges.forEach(function addVertexToRange(range)
 		{
@@ -2177,7 +2177,7 @@ Object.defineProperties(GeometryAllocation.prototype = Object.create(Object.prot
 		this.triangleBuffer.vertexBuffer.uvs = uvs;
 		this.triangleBuffer.vertexBuffer.normals = normals;
 		this.triangleBuffer.vertexBuffer.matrices = matrices;
-		var triangles = this.triangleBuffer.triangles instanceof Uint16Array ? Array.from(this.triangleBuffer.triangles) : this.triangleBuffer.triangles;
+		var triangles = this.triangleBuffer.triangles instanceof Uint16Array ? Array.prototype.slice.call(this.triangleBuffer.triangles) : this.triangleBuffer.triangles;
 		if(this.triangleRange)
 			triangles.fill(0, this.triangleRange[0], this.triangleRange[1]);
 		this.triangleBuffer.triangles = triangles.concat(new Array(triangleCount * 3).fill(0));
@@ -2293,8 +2293,8 @@ function Renderer(parameters)
 	parameters.textureMap.renderer = this;
 	this.textureMap = parameters.textureMap instanceof TextureMap ? parameters.textureMap : new TextureMap(parameters.textureMap);
 	this.registeredLights = Number.isInteger(parameters.registeredLights) ? parameters.registeredLights : 0;
-	this.updateRequests = Array.isArray(parameters.updateRequests) ? parameters.updateRequests : Array.from(parameters.updateRequests);
-	this.layers = Array.isArray(parameters.layers) ? parameters.layers : Array.from(parameters.layers);
+	this.updateRequests = Array.isArray(parameters.updateRequests) ? parameters.updateRequests : Array.prototype.slice.call(parameters.updateRequests);
+	this.layers = Array.isArray(parameters.layers) ? parameters.layers : Array.prototype.slice.call(parameters.layers);
 	this.vertexBuffer = new VertexBuffer();
 	this.layers.forEach(function assignTriangleBufferToLayer(layer)
 	{
@@ -2443,10 +2443,10 @@ Object.defineProperties(WebGLRenderer.prototype = Object.create(Renderer.prototy
 				{
 					if(shiftRequired || layer.registeredTriangles < layer.triangleBuffer.triangles.length / 3)
 					{
-						layer.registeredTriangles = Math.pow(2, Math.ceil(Math.log2(layer.triangleBuffer.triangles.length / 3)));
+						layer.registeredTriangles = Math.pow(2, Math.ceil(Math.log(layer.triangleBuffer.triangles.length / 3) * Math.LOG2E));
 						layer.preceedingTriangles = preceedingTriangles;
 						var glBuffer = layer.triangleBuffer.triangles.glBuffer;
-						layer.triangleBuffer.triangles = Array.from(layer.triangleBuffer.triangles).concat(new Array(layer.registeredTriangles * 3 - layer.triangleBuffer.triangles.length).fill(0));
+						layer.triangleBuffer.triangles = Array.prototype.slice.call(layer.triangleBuffer.triangles).concat(new Array(layer.registeredTriangles * 3 - layer.triangleBuffer.triangles.length).fill(0));
 						layer.triangleBuffer.triangles.glBuffer = glBuffer;
 						preceedingTriangles += layer.registeredTriangles;
 						shiftRequired = true;
@@ -2866,8 +2866,8 @@ Object.defineProperties(Player.prototype = Object.create(MovingObject.prototype)
 		}
 		if(!isNaN(lookAngle))
 		{
-			this.rotation[0] = Math.max(Math.min(this.rotation[0] + Math.cos(lookAngle) * Math.rad(lookDistance), Math.HALFPI), -Math.HALFPI);
-			this.rotation[1] += Math.sin(lookAngle) * Math.rad(lookDistance);
+			this.rotation[0] = Math.max(Math.min(this.rotation[0] + Math.cos(lookAngle) * lookDistance * Math.RTD, Math.HALFPI), -Math.HALFPI);
+			this.rotation[1] += Math.sin(lookAngle) * lookDistance * Math.RTD;
 		}
 	} },
 	controlsLoop: { value: function controlsLoop(timestamps, last, now)
@@ -2893,8 +2893,8 @@ Object.defineProperties(Player.prototype = Object.create(MovingObject.prototype)
 			}
 			if(!isNaN(lookAngle))
 			{
-				this.rotation[0] = Math.max(Math.min(this.rotation[0] + Math.cos(lookAngle) * Math.rad(lookDistance), Math.HALFPI), -Math.HALFPI);
-				this.rotation[1] += Math.sin(lookAngle) * Math.rad(lookDistance);
+				this.rotation[0] = Math.max(Math.min(this.rotation[0] + Math.cos(lookAngle) * lookDistance * Math.RTD, Math.HALFPI), -Math.HALFPI);
+				this.rotation[1] += Math.sin(lookAngle) * lookDistance * Math.RTD;
 			}
 			var moveAngle = NaN;
 			var moveDistance = 1;

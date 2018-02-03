@@ -3,8 +3,8 @@
 	"properties":
 	{
 		"order": [ "width", "height" ],
-		"width": { "default": "return 1", "transformer": "return Math.abs(Number.parseFloat(value)) || 1" },
-		"height": { "default": "return 1", "transformer": "return Math.abs(Number.parseFloat(value)) || 1" }
+		"width": { "default": "return 1", "transformer": "return Math.abs(parseFloat(value)) || 1" },
+		"height": { "default": "return 1", "transformer": "return Math.abs(parseFloat(value)) || 1" }
 	},
 	"functions":
 	{

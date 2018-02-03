@@ -1,156 +1,20 @@
 Object.defineProperty(Math, "HALFPI", { value: Math.PI / 2 });
 Object.defineProperty(Math, "PI2", { value: Math.PI * 2 });
-Object.defineProperty(Math, "DTR", { value: Math.PI / 180 });
 Object.defineProperty(Math, "RTD", { value: 180 / Math.PI });
-Math.log2 = Math.log2 || function log2(x)
-{
-	return Math.log(x) * Math.LOG2E;
-};
-Array.concat = function()
-{
-	var ret = [ ];
-	Array.forEach(arguments, function(arrayLike)
-	{
-		Array.forEach(arrayLike, function(item)
-		{
-			ret[ret.length] = item;
-		});
-	});
-	return ret;
-}
-
-Array.forEach = function(arrayLike, callback, thisArg)
-{
-	for(var i = 0; i < arrayLike.length; i++)
-		if(arrayLike[i] != undefined)
-			callback.call(thisArg, arrayLike[i], i, arrayLike);
-}
-Array.map = function(arrayLike, callback, thisArg)
-{
-	var ret = [ ];
-	for(var i = 0; i < arrayLike.length; i++)
-		ret[i] = callback.call(thisArg, arrayLike[i], i, arrayLike);
-	return ret;
-}
-Array.every = function(arrayLike, callback, thisArg)
-{
-	for(var i = 0; i < arrayLike.length; i++)
-		if(!callback(arrayLike[i], i, arrayLike))
-			return false;
-	return true;
-}
-Array.some = function(arrayLike, callback, thisArg)
-{
-	for(var i = 0; i < arrayLike.length; i++)
-		if(callback(arrayLike[i], i, arrayLike))
-			return true;
-	return false;
-}
-Array.find = function(arrayLike, callback, thisArg)
-{
-	for(var i = 0; i < arrayLike.length; i++)
-		if(callback(arrayLike[i], i, arrayLike))
-			return i;
-	return -1;
-}
-Object.defineProperty(Math, "rad", { value: function(deg)
-{
-	return deg * Math.DTR;
-} });
-Object.defineProperty(Math, "deg", { value: function(rad)
-{
-	return rad * Math.RTD;
-} });
-Array.from = Array.from || (function ()
-{
-	var toStr = Object.prototype.toString;
-	var isCallable = function(fn)
-	{
- 			return typeof fn === 'function' || toStr.call(fn) === '[object Function]';
-	};
-	var toInteger = function(value)
-	{
-		var number = Number(value);
-		if(isNaN(number)) { return 0; }
-		if(number == 0 || !isFinite(number)) { return number; }
-		return (number > 0 ? 1 : -1) * Math.floor(Math.abs(number));
-	};
-	var maxSafeInteger = Math.pow(2, 53) - 1;
-	var toLength = function(value)
-	{
-		var len = toInteger(value);
-		return Math.min(Math.max(len, 0), maxSafeInteger);
-	};
-	return function from(arrayLike)
-	{
-		var C = this;
-		var items = Object(arrayLike);
-		if(arrayLike == null)
-		{
-			throw new TypeError('Array.from requires an array-like object - not null or undefined');
-		}
-		var mapFn = arguments.length > 1 ? arguments[1] : void undefined;
-		var T;
-		if(typeof mapFn !== 'undefined')
-		{
-			if(!isCallable(mapFn))
-			{
-				throw new TypeError('Array.from: when provided, the second argument must be a function');
-			}
-			if (arguments.length > 2)
-			{
-				T = arguments[2];
-			}
-		}
-		var len = toLength(items.length);
-		var A = isCallable(C) ? Object(new C(len)) : new Array(len);
-		var k = 0;
-		var kValue;
-		while(k < len)
-		{
-			kValue = items[k];
-			if(mapFn)
-			{
-				A[k] = typeof T === 'undefined' ? mapFn(kValue, k) : mapFn.call(T, kValue, k);
-			}
-			else
-			{
-				A[k] = kValue;
-			}
-			k += 1;
-		}
-		A.length = len;
-		return A;
-	};
-}());
-{
-	originalIsArray = Array.isArray;
-	Array.isArray = function(i)
-	{
-		return originalIsArray(i) || i instanceof Vector[0] || i instanceof Color;
-	}
-}
 Array.prototype.fill = Array.prototype.fill || function(value)
 {
 	if(this == null)
-	{
 		throw new TypeError('this is null or not defined');
-	}
 	var O = Object(this);
 	var len = O.length >>> 0;
 	var start = arguments[1];
 	var relativeStart = start >> 0;
-	var k = relativeStart < 0 ?
-	Math.max(len + relativeStart, 0) :
-	Math.min(relativeStart, len);
+	var k = relativeStart < 0 ? Math.max(len + relativeStart, 0) : Math.min(relativeStart, len);
 	var end = arguments[2];
 	var relativeEnd = end === undefined ? len : end >> 0;
 	var final = relativeEnd < 0 ? Math.max(len + relativeEnd, 0) : Math.min(relativeEnd, len);
-	while (k < final)
-	{
+	for(; k < final; k++)
 		O[k] = value;
-		k++;
-	}
 	return O;
 };
 Array.prototype.find = Array.prototype.find || function(predicate)
