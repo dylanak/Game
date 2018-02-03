@@ -23,7 +23,7 @@ requestText("resources/directory.json", function(text)
 		var gamepadControllers = entry[1].controllers.gamepad || [ ];
 		game.level.controls.addControl(name, func, type, mouseControllerFilter, keyboardControllerFilter, gamepadControllerFilter, mouseControllers, keyboardControllers, gamepadControllers);
 	});
-	game.renderer.textureMap.loadTextures([ "resources/textures/brick.png" ], function onTexturesReady(textures)
+	game.renderer.textureMap.loadTextures([ "resources/textures/earth.png" ], function onTexturesReady(textures)
 	{
 		var geometry = game.level.addGeometry("sphere", [ 0, 0, -6 ], [ 0, 0, 0 ], textures[0], [ 1, 1, 1 ])
 	});
