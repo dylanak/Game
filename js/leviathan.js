@@ -40,11 +40,6 @@ function averageRadians(a, b)
 	return isNaN(a) ? b : isNaN(b) ? a : wrapRadians((a = wrapRadians(a)) + Math.PI) == (b = wrapRadians(b)) ? NaN : (((a == -Math.PI ? Math.PI * Math.abs(b) / b : a) + (b == -Math.PI ? Math.PI * Math.abs(a) / Math.PI : b) + Math.PI * 4) / 2) - Math.PI2;
 }
 
-function callSuper(thisArg, name)
-{
-	return Object.getPrototypeOf(Object.getPrototypeOf(thisArg))[name].apply(thisArg, Array.prototype.slice.call(arguments).splice(2, arguments.length - 2));
-}
-
 function isUnicodeNumber(unicode)
 {
 	return unicode >= 48 && unicode <= 57;
@@ -1481,12 +1476,12 @@ Object.defineProperties(Controls.prototype = Object.create(ElementEventListener.
 	} },
 	onElementDelete: { value: function onElementDelete()
 	{
-		callSuper(this, "onElementDelete");
+		ElementEventListener.prototype.onElementDelete.call(this);
 		this.keyboard.element = this.mouse.element = this.gamepad.element = undefined;
 	} },
 	onElementSet: { value: function onElementSet()
 	{
-		callSuper(this, "onElementSet");
+		ElementEventListener.prototype.onElementSet.call(this);
 		this.keyboard.element = this.mouse.element = this.gamepad.element = this.element;
 	} },
 	addControl: { value: function addControl(name, func, type, mouseControllerFilter, keyboardControllerFilter, gamepadControllerFilter, defaultMouseControllers, defaultKeyboardControllers, defaultGamepadControllers)
@@ -2313,7 +2308,7 @@ Object.defineProperties(WebGLRenderer.prototype = Object.create(Renderer.prototy
 	} },
 	onElementSet: { value: function onElementSet()
 	{
-		callSuper(this, "onElementSet");
+		Renderer.prototype.onElementSet.call(this);
 		if(this.element.getContext)
 		{
 			this.gl = this.element.getContext("webgl2") || this.game.element.getContext("webgl") || this.game.element.getContext("experimental-webgl");
@@ -2369,7 +2364,7 @@ Object.defineProperties(WebGLRenderer.prototype = Object.create(Renderer.prototy
 				this.gl.activeTexture(this.gl.TEXTURE0);
 				this.textureMap.modified = false;
 			}
-			if(callSuper(this, "render", delta) && this.shaders)
+			if(Renderer.prototype.render.call(this, delta) && this.shaders)
 			{
 				var recompiled = this.shaders.tryRecompileShaders(this);
 				if(this.clearColor.modified)
@@ -2536,7 +2531,7 @@ Object.defineProperties(WebGLRenderer.prototype = Object.create(Renderer.prototy
 			}
 			return false;
 		}
-		callSuper(this, "render", delta);
+		Renderer.prototype.render.call(this, delta);
 		return false;
 	} },
 	bindShaderAttribute: { value: function bindShaderAttribute(buffer, location, parameters)
@@ -3164,7 +3159,7 @@ Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prot
 	} },
 	onElementDelete: { value: function onElementDelete()
 	{
-		callSuper(this, "onElementDelete");
+		ElementEventListener.prototype.onElementDelete.call(this);
 		if(this.element.requestFullscreen == this.element.webkitRequestFullscreen || this.element.requestFullscreen == this.element.mozRequestFullScreen || this.element.requestFullscreen == this.element.msRequestFullscreen)
 			delete this.element.requestFullscreen;
 		if(this.element.requestPointerLock == this.element.webkitRequestPointerLock || this.element.requestPointerLock == this.element.mozRequestPointerLock)
@@ -3173,7 +3168,7 @@ Object.defineProperties(Game.prototype = Object.create(ElementEventListener.prot
 	} },
 	onElementSet: { value: function onElementSet()
 	{
-		callSuper(this, "onElementSet");
+		ElementEventListener.prototype.onElementSet.call(this);
 		this.element.requestFullscreen = this.element.requestFullscreen || this.element.webkitRequestFullscreen || this.element.mozRequestFullScreen || this.element.msRequestFullscreen;
 		this.element.requestPointerLock = this.element.requestPointerLock || this.element.webkitRequestPointerLock || this.element.mozRequestPointerLock;
 		this.renderer.element = this.element;
