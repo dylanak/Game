@@ -25,6 +25,13 @@ requestText("resources/directory.json", function(text)
 	});
 	game.renderer.textureMap.loadTextures([ "resources/textures/earth.png" ], function onTexturesReady(textures)
 	{
-		var geometry = game.level.addGeometry("sphere", [ 0, 0, -6 ], [ 0, 0, 0 ], textures[0], [ 1, 1, 1 ])
+		var geometry = game.level.addGeometry("sphere", [ 0, 0, -6 ], [ 0, 0, 0 ], textures[0], [ 1, 1, 1 ]);
+		var lasttime = Date.now();
+		setInterval(function()
+		{
+			var now = Date.now();
+			geometry.rotation.y += Math.PI / 3000 * (now - lasttime);
+			lasttime = now;
+		}, 1000 / 60);
 	});
 });
