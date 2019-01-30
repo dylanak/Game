@@ -30,7 +30,7 @@ requestText("resources/directory.json", function(text)
 		setInterval(function()
 		{
 			var now = Date.now();
-			geometry.rotation.y += Math.PI / 3000 * (now - lasttime);
+			game.level.geometries[0].rotation.y += Math.PI / 3000 * (now - lasttime);
 			lasttime = now;
 		}, 1000 / 60);
 	});
